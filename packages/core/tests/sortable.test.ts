@@ -254,6 +254,24 @@ describe("groups", () => {
         expect(empty.registration.getState().sorting).toBe(false);
     });
 
+    it("reports the item's own place as `from` when its group is disabled", () => {
+        const onSortEnd = vi.fn();
+        const a = column("a", 0, { onSortEnd });
+        sortableGroup(
+            { group: "a", disabled: true },
+            { x: 0, y: 0, width: 100, height: 240 },
+        );
+        const press = grab(a[2] as (typeof a)[0]);
+        press.by(0, 60);
+        // never sorted within: its neighbours stay at rest
+        expect(translate(a)).toEqual(["", "", translate(a)[2], ""]);
+        press.drop(0, 60);
+        expect(onSortEnd.mock.calls[0]?.[0]).toMatchObject({
+            from: { group: "a", index: 2 },
+            to: { group: "a", index: 2 },
+        });
+    });
+
     it("goes through the middleware as a drop of the item on the group; a veto keeps it home", () => {
         const onSortEnd = vi.fn();
         const space = getDragSpace(document);

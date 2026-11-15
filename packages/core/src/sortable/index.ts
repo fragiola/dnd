@@ -364,6 +364,8 @@ function createSort(space: DragSpace, source: Item): Sort {
             groupOf(each.group);
     }
     const home = groupOf(sourceInfo.group);
+    // measured again with its group's rects, unless the group is disabled (never measured)
+    from = Math.max(0, home.items.indexOf(source));
     const removals = [...groups.values()].map((group) =>
         space.adapter.register(group.entry),
     );
