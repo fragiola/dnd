@@ -75,6 +75,28 @@ describe("app code that throws", () => {
         },
     );
 
+    it("a throw in the frame a release flushes cancels the drag, and nothing drops after it", () => {
+        const log: string[] = [];
+        let armed = false;
+        const { element } = draggable({
+            id: "c",
+            onDragMove: () => {
+                if (armed) boom();
+            },
+            onDragCancel: () => log.push("cancel"),
+            onDragEnd: () => log.push("end"),
+        });
+        droppable({ id: "z", onDrop: () => log.push("drop") }, ZONE);
+        const press = pointer(element, 10, 10);
+        press.move(150, 50);
+        armed = true;
+        // the release moves the pointer first: its frame runs inside the drop, and throws
+        press.release(160, 50);
+        expect(log).toEqual(["cancel"]);
+        expect(getDragSpace(document).is("dragging")).toBe(false);
+        expect(() => vi.runAllTimers()).toThrow("boom");
+    });
+
     it("a throwing onDragLeave and onDragCancel still end the drag", () => {
         const space = getDragSpace(document);
         const { element } = draggable({ id: "c", onDragCancel: boom });

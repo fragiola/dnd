@@ -307,6 +307,8 @@ export function startDrag(
         drop() {
             if (done) return;
             if (frameId !== undefined) frame();
+            // that last frame's app code threw: the drag was cancelled, nothing drops
+            if (done) return;
             done = true;
             // a refused hover never reports a drop (D5); the middleware runs for real, first, and
             // a veto drops nowhere: no onDrop, and onDragEnd sees no target
