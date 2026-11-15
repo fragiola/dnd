@@ -54,6 +54,7 @@ const DRAGGABLE = [
     "registerDraggable",
     "bindPointer",
     "bindKeyboard",
+    "reveal",
     "startDrag",
 ];
 /** Names only the draggable capability's own code carries (the sensors are shared now). */
