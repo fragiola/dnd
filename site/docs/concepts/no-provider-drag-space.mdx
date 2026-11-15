@@ -1,0 +1,89 @@
+---
+title: The drag space, one per document
+description: How draggables and droppables meet with no provider, what a scope isolates, when to make an explicit space, and the five verbs a space speaks.
+---
+
+A draggable in one corner of the tree and a droppable in another work together with nothing
+wrapped around them. They meet in the **drag space** of their document.
+
+## One space per document, created on first use
+
+The core keeps a drag space per `Document`, in a `WeakMap`, created the first time an element of
+that document registers. Nothing is created on import and nothing on the server. A wrapper
+registers its element when it mounts and unregisters it when it unmounts; no React context is
+involved anywhere, so a `Draggable` and a `Droppable` can live in components that know nothing of
+each other.
+
+```tsx title="two-corners.tsx"
+// a sidebar, rendered by one team
+<Draggable id="report" type="file">
+    <li>report.pdf</li>
+</Draggable>;
+
+// a folder view, rendered by another, far away in the tree
+<Droppable id="archive" accepts={["file"]} onDrop={archive}>
+    <section>Archive</section>
+</Droppable>;
+```
+
+<Example id="hello-dnd" />
+
+A registration belongs to the space of its element's **current** document, read when a drag
+starts. An element Dockable carries into a popout window meets the droppables of that window. A
+drag never crosses documents: a drag inside a popout stays in the popout.
+
+## Scopes
+
+A `scope` is a string on a draggable and on a droppable: a draggable only meets droppables of its
+scope (the default scope when neither names one). Two boards on one page, each its own scope,
+never see each other, and their ids may repeat: an id is unique within its scope.
+
+```tsx title="scopes.tsx"
+<Droppable id="open" scope="design">…</Droppable>
+<Droppable id="open" scope="engineering">…</Droppable>
+<Draggable id="avatar" scope="design">…</Draggable>
+```
+
+<Example id="scopes" />
+
+## An explicit space
+
+`createDragSpace({ document })` makes an isolated space: only registrations given it as `space`
+meet in it, and the document's own space never sees them. It is never required; it is for tests
+and micro-frontends that must not share a space with the page.
+
+```tsx title="isolated.tsx"
+import { createDragSpace } from "@fragiola/dnd-react";
+
+const space = createDragSpace({ document });
+
+<Draggable id="a" space={space}>…</Draggable>;
+<Droppable id="z" space={space}>…</Droppable>;
+<DragOverlay space={space}>…</DragOverlay>;
+```
+
+## Callbacks are local; the monitor is page-wide
+
+Each wrapper takes its own callbacks: `onDragStart`, `onDragMove`, `onDragEnd` and `onDragCancel`
+on a draggable, `onDragEnter`, `onDragOver`, `onDragLeave` and `onDrop` on a droppable. The only
+page-wide API, and an optional one, is the monitor: `useDragMonitor(listener, { scope })` in
+React, `subscribe(listener, { document, scope })` in the core. It is where an app builds its
+announcements or logs.
+
+## The space speaks the five verbs
+
+dnd has no domain model (the data you drag stays yours), so the space follows the engine side of
+the Fragiola model API: `run`, `can`, `check`, `get` and `is`, with `use` for drop middleware and
+`subscribe`. Reach it with `useDragSpace()` in React or `getDragSpace(document)` in the core. The
+keys are listed in [the core API](/docs/api/core#the-five-verbs).
+
+```ts title="space.ts"
+const space = getDragSpace(document);
+space.get("operation"); // the drag in progress, or undefined
+space.is("droppable-over", { droppableId: "done" });
+space.can("drop", { draggableId: "t1", droppableId: "done" }); // accepts, then the middleware
+space.run("cancel"); // ends the drag in progress, as Escape would
+```
+
+A drop middleware (`space.use((ctx, next) => …)`) is where an app writes a rule that spans
+libraries: see [with Dockable](/docs/guides/with-dockable#a-rule-across-both-libraries).

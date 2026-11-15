@@ -1,0 +1,71 @@
+---
+title: Keyboard and accessibility
+description: Grab, move, drop and cancel without a pointer, by steps or from target to target, and the names and announcements that stay the app's.
+---
+
+Every draggable can be dragged with the keyboard, and the keyboard emits the same events as the
+pointer, with `input: "keyboard"`.
+
+## The keys
+
+| key | does |
+| --- | --- |
+| Space or Enter | grabs the focused draggable; while dragging, drops it |
+| Arrow keys | move it: by a step, or to the next or previous droppable |
+| Escape | cancels: the drag ends with `onDragCancel`, the element goes back |
+| Tab, or the focus leaving | cancels |
+
+The draggable is a tab stop (its handle, when it has one): the wrapper sets `tabIndex={0}` when
+the element is not focusable already. Focus returns to the activator after a drop or Escape,
+unless the app moved it.
+
+## Steps or targets
+
+```tsx title="modes.tsx"
+// 25 px per arrow (the default mode and step)
+<Draggable id="card" keyboard={{ step: 25 }}>…</Draggable>;
+
+// droppable to droppable, in reading order
+<Draggable id="card" keyboard={{ mode: "targets" }}>…</Draggable>;
+```
+
+In `"targets"` mode, the arrows go from droppable to droppable in reading order: rows top to
+bottom, each row from its inline start. Down and the arrow toward the inline end go forward. In
+`"step"` mode, arrows are visual: in right to left, ArrowRight still moves right.
+
+<Example id="keyboard" />
+
+<Example id="rtl" />
+
+## What the wrappers never add
+
+The wrappers set **no role, no `aria-label`, no `aria-roledescription`** and none of the deprecated
+`aria-grabbed`/`aria-dropeffect`. They set `tabIndex` when the element is not focusable,
+`aria-disabled` when disabled, and `aria-describedby` only when the app passes `describedBy`.
+Every word is the app's:
+
+- **Names.** Give each draggable and droppable an accessible name (`aria-label`, or its text).
+  A handle that is only an icon needs one (`aria-label="Move Report"`).
+- **Instructions.** Point `describedBy` at an element that says how to drag, in your words.
+- **Announcements.** Listen with `useDragMonitor` and say each step in a live region.
+
+```tsx title="announcer.tsx"
+import { useDragMonitor } from "@fragiola/dnd-react";
+
+function Announcer({ nameOf }: { nameOf: (id: string | number) => string }) {
+    const [message, setMessage] = useState("");
+    useDragMonitor((event) => {
+        const { source, target } = event.operation;
+        if (event.type === "drag-start") setMessage(`Picked up ${nameOf(source.id)}.`);
+        if (event.type === "drag-over" && target) setMessage(`Over ${nameOf(target.id)}.`);
+        if (event.type === "drop")
+            setMessage(target ? `Dropped on ${nameOf(target.id)}.` : "Dropped nowhere.");
+        if (event.type === "drag-cancel") setMessage("Cancelled.");
+    });
+    return <p role="status">{message}</p>;
+}
+```
+
+`drag-start` already carries the droppable the drag starts over as its `operation.target`, and
+`drag-over` only reports a change of target after that, so the "Picked up" sentence is not
+replaced before it is read.

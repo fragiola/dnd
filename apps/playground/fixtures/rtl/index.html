@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en" dir="rtl">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Right-to-left DnD fixture</title>
+        <style>
+            /* the fixture's own few lines: boxes to aim at, and room around them */
+            body { margin: 0; padding: 24px 40px; font: 13px/1.2 system-ui, sans-serif; }
+            .row { display: flex; gap: 24px; align-items: flex-start; margin-block: 16px; }
+            .card { width: 80px; height: 48px; outline: 1px solid #888; background: #eee; }
+            .card.wide { width: 220px; }
+            .grip { display: inline-block; width: 24px; height: 24px; background: #06c; color: #fff; }
+            .zone { width: 120px; height: 80px; outline: 1px dashed #06c; }
+            .clip { width: 120px; height: 60px; overflow: hidden; outline: 1px solid #c60; }
+            .scroller { width: 160px; height: 150px; overflow: auto; outline: 1px solid #090; }
+            .spacer { height: 500px; }
+            [data-dnd-over] { outline-width: 3px; }
+            [data-dnd-refused] { outline-color: #c00; }
+        </style>
+    </head>
+    <body>
+        <div id="root"></div>
+        <script type="module">
+            import { mountFixture } from "../fixture.tsx";
+            mountFixture();
+        </script>
+    </body>
+</html>

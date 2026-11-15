@@ -1,0 +1,55 @@
+---
+title: Collision strategies
+description: How a drag finds the droppable it is over. The three pure strategies, when each fits, and how refused droppables still show as refused.
+---
+
+Each animation frame of a drag, a collision strategy picks the droppable the drag is over, from
+the droppables of its scope that are not disabled. Strategies are pure functions exported from the
+shared entry, so an app ships only the one it imports. Give one to a draggable with `collision`.
+
+```tsx title="board.tsx"
+import { closestCenter } from "@fragiola/dnd-react";
+
+<Draggable id="card" collision={closestCenter}>
+    <article>Card</article>
+</Draggable>;
+```
+
+## The strategies
+
+| strategy | picks | fits |
+| --- | --- | --- |
+| `pointerWithin` (default) | the droppable under the pointer; nested ones: the smallest box | most boards and lists: what you point at is where it goes |
+| `closestCenter` | the droppable whose centre is nearest the dragged box's centre, wherever the pointer is | small targets, or a drop that should always land somewhere |
+| `rectIntersection` | the droppable the dragged box overlaps most (intersection over union); none when it overlaps none | big dragged items whose body, not the pointer, decides |
+
+## Accepting first, refused second
+
+The strategy runs on the droppables that accept the source first. Only when none is hit does it
+run on the refusing ones, to mark the one hovered `data-dnd-refused`. So a refused card inside an
+accepting column drops in the column.
+
+## Measured, not polled
+
+Droppables are measured when a drag starts, again on its first frame (the app's render of the
+drag start may have moved things), after a scroll or a resize during the drag, and when a
+droppable registers, unregisters or changes during it. Never on every frame.
+
+## Your own strategy
+
+A strategy is a function of `{ pointer, dragRect, droppables }` (each droppable `{ id, rect }`)
+returning one of the droppables or `undefined`:
+
+```ts title="above.ts"
+import type { CollisionStrategy } from "@fragiola/dnd-react";
+
+/** the droppable whose top edge is nearest above the pointer */
+export const nearestAbove: CollisionStrategy = ({ pointer, droppables }) => {
+    let best: (typeof droppables)[number] | undefined;
+    for (const candidate of droppables) {
+        const gap = pointer.y - candidate.rect.y;
+        if (gap >= 0 && (!best || gap < pointer.y - best.rect.y)) best = candidate;
+    }
+    return best;
+};
+```

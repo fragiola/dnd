@@ -1,0 +1,56 @@
+---
+title: DragOverlay
+description: The one part that renders an element, and only when you use it, for a copy under the pointer while a drag runs, out of clipped containers.
+---
+
+A dragged element moves by its `translate`, so it stays inside its container: an
+`overflow: hidden` row (a Dockable tab strip, a panel) clips it. `DragOverlay` shows a copy the
+app renders under the pointer instead, portalled into the document's `body`, in a fixed box where
+the dragged element would be. Give the draggables `translate={false}` so they stay in place.
+
+```tsx title="tags.tsx"
+import { DragOverlay } from "@fragiola/dnd-react";
+import { Draggable } from "@fragiola/dnd-react/draggable";
+
+<ul className="strip">
+    {tags.map((tag) => (
+        <Draggable key={tag} id={tag} translate={false}>
+            <li>{tag}</li>
+        </Draggable>
+    ))}
+</ul>;
+
+<DragOverlay className="z-50">{(operation) => <span className="lifted">{String(operation.source.id)}</span>}</DragOverlay>;
+```
+
+It can sit anywhere in the tree, needs no provider, and renders nothing while no drag runs.
+
+<Example id="drag-overlay" />
+
+## Props
+
+| prop | type | |
+| --- | --- | --- |
+| `children` | `ReactNode \| (operation: DragOperation) => ReactNode` | what it shows: a node, or a function of the drag in progress |
+| `scope` | `string` | only the drags of this scope |
+| `space` | `DragSpace` | an explicit space from `createDragSpace` |
+| `document` | `Document` | this document's drags (default: the page's) |
+| `className` | `string \| (state) => string \| undefined` | on the overlay's box |
+| `style` | `CSSProperties \| (state) => CSSProperties \| undefined` | merged under its structural style |
+| `render` | `ReactElement \| (props, state) => ReactElement` | the box's element (default: a `div`) |
+| `ref` | `Ref<HTMLElement>` | the box |
+
+## State, attributes and style
+
+Its state is `{ operation }`, the drag it shows. Its box carries `data-dnd-part="overlay"` and only
+structural inline style: `position: fixed`, `left`, `top`, `width` and `height` of the dragged box,
+`box-sizing: border-box` and `pointer-events: none`.
+
+The overlay renders nothing while no drag runs, so its `className`, `style` and `render`
+functions (and a children function) are only called during a drag: `state.operation` is always
+there.
+
+## Rendering
+
+It re-renders on the drag's start, when its target changes and at its end. The pointer's moves
+write the box's `left` and `top` directly, without rendering React.

@@ -1,0 +1,126 @@
+/* Theme "light" — Neutral and quiet: the reference look.
+
+   One file per theme, selected by data-example-theme="light" on any element
+   (the docs put it on <body>, as an app would). A theme only sets values; it styles
+   no markup. It declares:
+     1. shape tokens (--dnd-*) that the examples' class names read: fonts and sizes
+        (--dnd-font, --dnd-font-size), an item's padding, corners, frame and shadow
+        (--dnd-item-padding, --dnd-radius, --dnd-border, --dnd-shadow), the shadow of an item
+        being dragged (--dnd-lift-shadow), a drag handle's hit size (--dnd-handle-size),
+        the placeholder's outline (--dnd-placeholder-style, --dnd-placeholder-width), the
+        focus ring (--dnd-focus-width), a card title's type (--dnd-title-weight,
+        --dnd-title-transform, --dnd-title-tracking) and motion (--dnd-motion);
+     2. the Fragiola palettes the examples use, each with all SIX roles
+        (base, soft, line, contrast, accent, ring). A palette that omitted one
+        would inherit it from the page and leak across the theme boundary;
+     3. on every palette, the colour tokens that depend on it: a drop zone's floor
+        (--dnd-zone-bg), an item's frame (--dnd-item-line), the placeholder (--dnd-placeholder-bg,
+        --dnd-placeholder-line), the handles (--dnd-handle-color) and the focus ring and grabbed
+        item (--dnd-focus-line). They are declared per palette so that var(--palette-…)
+        resolves against the palette the element sits in.
+
+   The tokens are the examples' own (D1): the packages ship no CSS and read none of them.
+
+   Specificity: the palette rules are ":root [data-example-theme="light"] .palette-x", which ties
+   with Fragiola's own ":root[data-theme] .palette-x" and wins by coming
+   later in the cascade, so a theme overrides the page's light/dark. */
+
+[data-example-theme="light"] {
+    color-scheme: light;
+    --palette-state-shift: -0.1;
+    --dnd-font: var(--font-sans);
+    --dnd-font-size: 0.8125rem;
+    --dnd-item-padding: 0.75rem;
+    --dnd-radius: 8px;
+    --dnd-border: 1px;
+    --dnd-shadow: 0 1px 2px oklch(0 0 0 / 0.06);
+    --dnd-lift-shadow: 0 12px 28px oklch(0 0 0 / 0.16);
+    --dnd-handle-size: 14px;
+    --dnd-placeholder-style: dashed;
+    --dnd-placeholder-width: 2px;
+    --dnd-focus-width: 2px;
+    --dnd-title-weight: 600;
+    --dnd-title-transform: none;
+    --dnd-title-tracking: 0;
+    --dnd-motion: 160ms;
+}
+
+:root [data-example-theme="light"] .palette-surface,
+:root [data-example-theme="light"].palette-surface {
+    --palette-base: oklch(0.96 0.003 250);
+    --palette-soft: oklch(0.93 0.004 250);
+    --palette-line: oklch(0.86 0.004 250);
+    --palette-contrast: oklch(0.15 0.01 250);
+    --palette-accent: oklch(0.3 0.01 250);
+    --palette-ring: var(--palette-accent);
+}
+
+:root [data-example-theme="light"] .palette-raised,
+:root [data-example-theme="light"].palette-raised {
+    --palette-base: oklch(1 0 0);
+    --palette-soft: oklch(0.955 0.004 250);
+    --palette-line: oklch(0.87 0.005 250);
+    --palette-contrast: oklch(0.15 0.01 250);
+    --palette-accent: oklch(0.28 0.01 250);
+    --palette-ring: var(--palette-accent);
+}
+
+:root [data-example-theme="light"] .palette-blue,
+:root [data-example-theme="light"].palette-blue {
+    --palette-base: oklch(0.55 0.2 250);
+    --palette-soft: oklch(0.94 0.06 250);
+    --palette-line: oklch(0.85 0.08 250);
+    --palette-contrast: oklch(1 0 0);
+    --palette-accent: oklch(0.45 0.18 250);
+    --palette-ring: var(--palette-accent);
+}
+
+:root [data-example-theme="light"] .palette-orange,
+:root [data-example-theme="light"].palette-orange {
+    --palette-base: oklch(0.68 0.17 55);
+    --palette-soft: oklch(0.94 0.08 70);
+    --palette-line: oklch(0.85 0.12 70);
+    --palette-contrast: oklch(0.2 0.05 55);
+    --palette-accent: oklch(0.45 0.15 55);
+    --palette-ring: var(--palette-accent);
+}
+
+:root [data-example-theme="light"] .palette-green,
+:root [data-example-theme="light"].palette-green {
+    --palette-base: oklch(0.52 0.16 150);
+    --palette-soft: oklch(0.94 0.07 150);
+    --palette-line: oklch(0.85 0.1 150);
+    --palette-contrast: oklch(1 0 0);
+    --palette-accent: oklch(0.42 0.14 150);
+    --palette-ring: var(--palette-accent);
+}
+
+:root [data-example-theme="light"] .palette-danger,
+:root [data-example-theme="light"].palette-danger {
+    --palette-base: oklch(0.55 0.2 25);
+    --palette-soft: oklch(0.94 0.07 25);
+    --palette-line: oklch(0.85 0.1 25);
+    --palette-contrast: oklch(1 0 0);
+    --palette-accent: oklch(0.45 0.18 25);
+    --palette-ring: var(--palette-accent);
+}
+
+:root [data-example-theme="light"] .palette-purple,
+:root [data-example-theme="light"].palette-purple {
+    --palette-base: oklch(0.55 0.2 300);
+    --palette-soft: oklch(0.94 0.06 300);
+    --palette-line: oklch(0.85 0.08 300);
+    --palette-contrast: oklch(1 0 0);
+    --palette-accent: oklch(0.45 0.18 300);
+    --palette-ring: var(--palette-accent);
+}
+
+:root [data-example-theme="light"] [class*="palette-"],
+:root [data-example-theme="light"][class*="palette-"] {
+    --dnd-zone-bg: var(--palette-soft);
+    --dnd-item-line: var(--palette-line);
+    --dnd-placeholder-bg: oklch(from oklch(0.55 0.2 250) l c h / 0.14);
+    --dnd-placeholder-line: oklch(0.55 0.2 250);
+    --dnd-handle-color: oklch(from var(--palette-contrast) l c h / 0.45);
+    --dnd-focus-line: oklch(0.55 0.2 250);
+}

@@ -1,0 +1,62 @@
+---
+title: With Grid Layout
+description: Drag a card inside a grid item without moving the item, and add an item to the grid with item.add when a card is dropped on it.
+---
+
+dnd composes with [Grid Layout](https://fragiola.com/grid-layout) the same way as with Dockable:
+through the primitives' forwarded props and through Grid Layout's own commands, in app code.
+
+<Callout type="info" title="A local scenario for now">
+Grid Layout is not on npm yet, so this integration is not in the gallery: it is a dev-only
+scenario of this repository's playground (`interop/grid-layout-item`), which resolves Grid
+Layout's sources when its repository sits beside this one. It becomes an example once Grid
+Layout is published.
+</Callout>
+
+## A draggable inside a grid item
+
+A `GridLayout.Item` is draggable itself. A dnd card inside it drags the card, not the item,
+because dnd **claims the press** on `pointerdown` (`preventDefault()`) and Grid Layout ignores a
+press already claimed (`defaultPrevented`). Nothing to configure on either side:
+
+```tsx title="dashboard.tsx"
+import { Draggable } from "@fragiola/dnd-react/draggable";
+import { GridLayout } from "@fragiola/grid-layout-react";
+
+<GridLayout.Item itemId={item.id}>
+    <Draggable id={`${item.id}-card`}>
+        <article>Drag me out of the widget</article>
+    </Draggable>
+</GridLayout.Item>;
+```
+
+dnd writes the CSS `translate` property, and Grid Layout positions its items with `transform`:
+the two compose, so a card dragged inside a grid item never fights the item's placement. See
+[the press claim](/docs/concepts/sensors-and-activation#the-press-claim-and-the-focus-it-gives-back)
+for what claiming a press changes (no `mousedown`, the focus given back).
+
+## A drop that adds an item
+
+A `Droppable` around `GridLayout.Root` takes the card; its `onDrop` runs Grid Layout's own
+`item.add` through `gridLayoutRef`, the handle that reaches the grid's model from outside the
+root. Without `x` and `y`, the item takes the first free cell.
+
+```tsx title="grid.tsx"
+import { Droppable } from "@fragiola/dnd-react/droppable";
+import { GridLayout, useGridLayoutRef } from "@fragiola/grid-layout-react";
+
+const gridLayoutRef = useGridLayoutRef();
+
+<Droppable
+    id="grid"
+    accepts={["new"]}
+    onDrop={() => gridLayoutRef.current?.model.run("item.add", { item: { id: nextId(), w: 2, h: 1 } })}
+>
+    <GridLayout.Root gridLayoutRef={gridLayoutRef} defaultLayout={layout}>
+        {/* items */}
+    </GridLayout.Root>
+</Droppable>;
+```
+
+The playground's e2e checks both: the grid item stays where it was while its card drags, and the
+drop adds an item.

@@ -1,0 +1,71 @@
+---
+title: Hooks
+description: The lower layer the wrappers are built on, the page-wide drag monitor, and the hook that gives the drag space for its verbs and middleware.
+---
+
+## useDraggable
+
+```tsx title="card.tsx"
+import { useDraggable } from "@fragiola/dnd-react/draggable";
+
+function Card({ id }: { id: string }) {
+    const { state, props } = useDraggable({ id, type: "task" });
+    return <article {...props} className={state.dragging ? "card lifted" : "card"} />;
+}
+```
+
+`useDraggable(options)` takes the `Draggable` props that are options (`id`, `type`, `data`,
+`scope`, `space`, `disabled`, `activation`, `keyboard`, `autoScroll`, `collision`, `translate`,
+`describedBy` and the four callbacks) and returns `{ state, props }`:
+
+- `state`: `{ dragging, disabled }`;
+- `props`: spread onto one element: `ref` (a callback ref that registers the element),
+  `data-dnd-part`, `data-dnd-id`, `data-dnd-dragging`, `data-dnd-disabled`, `aria-disabled`,
+  `aria-describedby`.
+
+Options update the registration without re-registering, and inline callbacks are always the
+latest. A `DragHandle` inside the element works with the hook as with the wrapper.
+
+## useDroppable
+
+`useDroppable(options)` takes the `Droppable` options (`id`, `data`, `scope`, `space`, `accepts`,
+`disabled` and the four callbacks) and returns `{ state, props }`: `state` is
+`{ over, active, refused, disabled }`, `props` the `ref` and the `data-dnd-*` and `aria-disabled`
+attributes.
+
+```tsx title="column.tsx"
+const { state, props } = useDroppable({ id: "done", onDrop });
+return <section {...props} aria-label="Done" data-full={state.over || undefined} />;
+```
+
+## useDragMonitor
+
+```ts title="announcer.ts"
+useDragMonitor((event) => announce(event), { scope: "board" });
+```
+
+`useDragMonitor(listener, options?)` calls `listener` with every drag event of the page:
+`drag-start`, `drag-move` (once per frame), `drag-over` (the target changed), `drop` and
+`drag-cancel`. It returns nothing. The listener may change on every render; it is read when an
+event comes.
+
+| option | |
+| --- | --- |
+| `scope` | only the events of this scope |
+| `space` | an explicit space from `createDragSpace` |
+| `document` | this document's drags (default: the page's) |
+
+## useDragSpace
+
+`useDragSpace(options?)` returns the drag space, for its [verbs](/docs/api/core#the-five-verbs)
+and its middleware: `options.space` when given (from the first render on), else the space of
+`options.document`, of `options.ref`'s element's document, or of the page, once mounted. It is
+`undefined` in the first render and on the server.
+
+```tsx title="rule.tsx"
+const space = useDragSpace();
+useEffect(
+    () => space?.use((ctx, next) => (ctx.payload.droppableId === "archive" ? { ok: false, error: { code: "vetoed" } } : next())),
+    [space],
+);
+```

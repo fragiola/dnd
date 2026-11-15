@@ -1,0 +1,87 @@
+---
+title: Wrappers without HTML
+description: A wrapper clones its single child and adds its behaviour there. What the child must do, how props merge and stack, and the render prop.
+---
+
+`<Draggable id="a"><Card /></Draggable>` renders exactly `Card`'s element. The wrapper merges its
+ref, handlers, `data-dnd-*` attributes, ARIA and structural style into that one element and
+renders nothing else. The child can be a plain element or any Fragiola primitive
+(`Dockable.TabSet`, `GridLayout.Item`, a Fragiola UI component).
+
+## What the child must do
+
+The child must be **one element that forwards `ref` and its other props** to a DOM element: a
+DOM element does, and so does every Fragiola primitive. In development, no child, several
+children, a fragment or text throw with a message saying so, and a child that never attaches the
+ref is reported with `console.error` after mount. In production an invalid child renders as it
+is, without the behaviour.
+
+```tsx title="card.tsx"
+// a component child forwards ref and props (React 19: ref is a plain prop)
+function Card({ ref, ...props }: React.ComponentProps<"article">) {
+    return <article ref={ref} {...props} className="card" />;
+}
+
+<Draggable id="a">
+    <Card aria-label="Report" />
+</Draggable>;
+```
+
+## How props merge
+
+- **Handlers compose**: the wrapper's first, then the child's own (`onPointerDown`, `onKeyDown`, …).
+- **`ref`** is merged: the wrapper's own, the `ref` given to the wrapper and the child's `ref` all
+  receive the element.
+- **`className`** is added to the child's, and **`style`** merged over the child's; both take a
+  value or a function of the wrapper's state. The structural keys (`translate`, `touch-action`)
+  always win.
+- **Everything else** a wrapper does not know is forwarded to the element, so a wrapper is itself
+  a valid child, and wrappers stack:
+
+```tsx title="stacked.tsx"
+<Droppable id="slot-1">
+    <Draggable id="card-1">
+        <li>Card</li>
+    </Draggable>
+</Droppable>
+// <li data-dnd-part="draggable droppable" data-dnd-id="card-1" …>
+```
+
+Stacked parts are listed in one `data-dnd-part` (matched with `~=`), and the inner wrapper's id is
+kept.
+
+## The render prop
+
+With no child to wrap, `render` gives the element, Base UI style: an element whose props are
+merged with the wrapper's, or a function receiving the props to spread and the state.
+
+```tsx title="render.tsx"
+<Droppable
+    id="basket"
+    render={(props, state) => (
+        <section {...props} aria-label="Basket">
+            {state.over ? "Release to drop" : "Basket"}
+        </section>
+    )}
+/>
+```
+
+<Example id="unstyled" />
+
+## Two deliberate exceptions to the Fragiola rules
+
+- **A wrapper that clones its child, not "`render`, never `asChild`".** Fragiola primitives render
+  their own element and take `render` to change it. dnd exists to add behaviour to elements other
+  code already renders (a Dockable tabset, a grid item, your card), so cloning the child is its
+  primary form, and `render` is the alternative. This is a maintainer's decision for this
+  library, recorded in its rules.
+- **No single namespace.** Fragiola libraries export one namespace (`Dockable.*`). A namespace
+  gathers every capability into one import, which defeats [paying only for what you
+  import](/docs/concepts/capability-entries), so dnd's parts are named exports of their
+  capability's entry: `Draggable` from `@fragiola/dnd-react/draggable`.
+
+## Hooks, the lower layer
+
+`useDraggable(options)` and `useDroppable(options)` return `{ state, props }`: spread `props`
+(the registering `ref`, `data-dnd-*`, ARIA) onto one element yourself. See
+[hooks](/docs/api/hooks).

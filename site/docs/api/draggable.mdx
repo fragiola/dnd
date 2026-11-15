@@ -1,0 +1,87 @@
+---
+title: Draggable
+description: The wrapper that makes its single child draggable by pointer and keyboard, with no provider. Every prop, its state, attributes and events.
+---
+
+`Draggable` makes the one element it wraps draggable, by mouse, touch, pen and the keyboard. It
+renders no element of its own, registers its element in its document's drag space, and adds
+`data-dnd-*` attributes, ARIA and, during a drag, a `translate`.
+
+```tsx title="card.tsx"
+import { Draggable } from "@fragiola/dnd-react/draggable";
+
+<Draggable id={task.id} type="task" data={task} onDragEnd={(event) => log(event.operation)}>
+    <article aria-label={task.title}>{task.title}</article>
+</Draggable>;
+```
+
+## Props
+
+| prop | type | default | |
+| --- | --- | --- | --- |
+| `id` | `string \| number` | required | unique within its scope; reported as `operation.source.id` |
+| `type` | `string` | | what a droppable's `accepts` list matches |
+| `data` | `unknown` | | anything the app wants back in the events (`operation.source.data`) |
+| `scope` | `string` | the default scope | only droppables of the same scope meet it |
+| `space` | `DragSpace` | its document's | an explicit space from `createDragSpace` |
+| `disabled` | `boolean` | `false` | starts no drag; cancels the one in progress |
+| `activation` | `{ distance?, delay?, tolerance? }` | `3` px; touch `200` ms within `5` px | when a press becomes a drag ([sensors](/docs/concepts/sensors-and-activation#activation)) |
+| `keyboard` | `{ step?, mode?: "step" \| "targets" }` | `25` px, `"step"` | how the arrows move it |
+| `autoScroll` | `AutoScroll` | | opt-in auto-scroll, from `autoScroll()` |
+| `collision` | `CollisionStrategy` | `pointerWithin` | how the target is found ([collision](/docs/concepts/collision)) |
+| `translate` | `boolean` | `true` | whether the element follows the pointer; `false` when a `DragOverlay` shows it |
+| `describedBy` | `string` | | the id of the element describing how to drag it (`aria-describedby`) |
+| `onDragStart` | `(event: DragStartEvent) => void` | | the drag started, past the activation; `operation.target` is the droppable it starts over |
+| `onDragMove` | `(event: DragMoveEvent) => void` | | the dragged box moved, at most once per frame |
+| `onDragEnd` | `(event: DropEvent) => void` | | it was released, on a target or not (`event.operation.target`) |
+| `onDragCancel` | `(event: DragCancelEvent) => void` | | it was cancelled: nothing dropped |
+| `className` | `string \| (state) => string \| undefined` | | added to the element's own |
+| `style` | `CSSProperties \| (state) => CSSProperties \| undefined` | | merged over the element's own; structural keys win |
+| `render` | `ReactElement \| (props, state) => ReactElement` | | the element, when there is no child to wrap |
+| `ref` | `Ref<HTMLElement>` | | merged with the wrapper's and the child's |
+| `children` | one element | | the element made draggable; it must forward `ref` and props |
+
+Any other prop is forwarded to the element, so `Draggable` is itself a valid child of another
+wrapper.
+
+## State
+
+`{ dragging: boolean; disabled: boolean }`, given to `className`, `style` and `render`.
+
+## Attributes
+
+| attribute | when |
+| --- | --- |
+| `data-dnd-part="draggable"` | always |
+| `data-dnd-id` | always: the `id`, as a string |
+| `data-dnd-dragging` | it is the source of the drag in progress |
+| `data-dnd-disabled`, `aria-disabled="true"` | `disabled` |
+| `aria-describedby` | `describedBy` is set |
+| `tabindex="0"` | set on the activator when it is not focusable already |
+
+## Events
+
+Each callback receives `{ type, operation, input }`, where `operation` is an immutable snapshot:
+
+| field | |
+| --- | --- |
+| `phase` | `"dragging"`, `"dropping"` (during the drop callbacks), or `"idle"` (a cancel) |
+| `scope` | the scope the source and its droppables share |
+| `source` | `{ id, type?, data? }` |
+| `target` | `{ id, data? }`: the hovered droppable that accepts the source; none for a refused hover |
+| `pointer` | the pointer now (for the keyboard, the centre of the dragged box) |
+| `delta` | how far the pointer moved since the start |
+| `rects` | `{ source, drag, target? }`: the source's box at the start, where it is dragged now, the target's |
+| `input` | `"pointer"` or `"keyboard"` |
+
+On a release, the droppable's `onDrop` runs first, then the draggable's `onDragEnd`, then the
+page-wide listeners, and only then is the `translate` cleared: an app that moves the element in
+its own state never sees it jump.
+
+## Deviations to know
+
+- An `onMouseDown` on the draggable does not run: the press is claimed on `pointerdown`. Use
+  `onPointerDown`. See [the press claim](/docs/concepts/sensors-and-activation#the-press-claim-and-the-focus-it-gives-back).
+- The wrapper adds no role and no name: give the element its accessible name.
+
+<Example id="hello-dnd" />
