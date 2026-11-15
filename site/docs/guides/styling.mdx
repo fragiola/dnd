@@ -61,7 +61,8 @@ pointer.
 
 ## The translate transition: gliding home
 
-When a drag is cancelled (Escape, a release outside any droppable), the core clears `translate`
+When a drag ends without the app moving the element (Escape cancels it; a release outside any
+droppable ends it with no target), the core clears `translate`
 and the element jumps back. A transition on `translate` that applies only at rest makes it glide
 back instead: the attribute and the inline style change in the same frame, and a CSS transition
 takes the after-change style, so the transition runs.

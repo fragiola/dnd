@@ -46,8 +46,8 @@ an implementation detail.
 3. **Entries are capabilities (D3).** The layering is:
 
    ```
-   @fragiola/dnd-react               shared core: drag space, sensors, collision, events, DragOverlay, types
-       ├── /draggable                Draggable, DragHandle, useDraggable
+   @fragiola/dnd-react               shared core: drag space, collision, events, auto-scroll, DragOverlay, types
+       ├── /draggable                Draggable, DragHandle, useDraggable (and the pointer and keyboard sensors)
        ├── /droppable                Droppable, useDroppable
        ├── /sortable                 (next Epic)
        └── /swappable                (next Epic)
@@ -70,7 +70,7 @@ an implementation detail.
    isolated space (tests, micro-frontends), passed as the `space` prop; it is never required.
    Callbacks are local: `onDragStart`/`onDragMove`/`onDragEnd`/`onDragCancel` on the draggable,
    `onDragEnter`/`onDragOver`/`onDragLeave`/`onDrop` on the droppable. Page-wide observers
-   subscribe with `subscribe(listener, { scope?, document? })` in the core, or
+   subscribe with `subscribe(listener, { document | space, scope? })` in the core, or
    `useDragMonitor(listener, options)` in React: the only, optional, "global" API. A drag never
    crosses documents: a drag inside a Dockable popout stays in that window.
    **The drag space is the engine: five verbs.** dnd has no domain model (the app's data stays
@@ -103,7 +103,7 @@ an implementation detail.
 7. **Style and state (D7).** **Inline style is structural only:** `translate` on the dragged
    element during a drag (the CSS `translate` property, **never `transform`**, so it composes with
    a host that owns `transform`, as Grid Layout's engine does), `touch-action: none` on a drag
-   handle, and for `DragOverlay` its `position: fixed`, geometry and `pointer-events: none`.
+   handle, and for `DragOverlay` its `position: fixed`, geometry, `box-sizing: border-box` and `pointer-events: none`.
    Everything else is the app's: the look of a dragged item, the placeholder, transitions, cursor
    and z-index. The packages ship no CSS file. **State only through `data-*` and ARIA**, each
    present or absent, never `"false"`, namespaced so that wrapping another primitive never
@@ -117,7 +117,7 @@ an implementation detail.
    parts (`data-dnd-part="draggable droppable"`, matched with `~=`) and keep the inner one's id.
 8. **A drag does not render React (D8).** The core writes `translate` imperatively, at most once
    per animation frame through the element's `defaultView`. React re-renders only the parts whose
-   `state` changed: the source on start and end, and droppables on enter, leave and drop. A render
+   `state` changed: the source on start and end, and droppables when a drag they would accept starts and ends, and on enter and leave. A render
    counter checks zero commits while the pointer moves inside one droppable. On drop, the core
    clears `translate` after the app's `onDrop`/`onDragEnd`, so an app that moves the element in its
    own state never sees a jump.
@@ -137,8 +137,8 @@ an implementation detail.
     **Space or Enter grabs it**, and the arrow keys move it: by a step in px (`keyboard.step`,
     default 25), or droppable to droppable, in reading order, with `keyboard.mode = "targets"`
     (dnd-kit's sortable keyboard idea). Space or Enter drops it, and Escape cancels it. Arrows are
-    visual: in RTL, ArrowRight still moves right. Focus returns to the source after a drop or a
-    cancel, unless the app moved it. The events carry `input: "keyboard"` and name the source and
+    visual: in RTL, ArrowRight still moves right. Focus returns to the source after a drop or
+    Escape, unless the app moved it (Tab or the focus leaving cancels without refocusing). The events carry `input: "keyboard"` and name the source and
     target ids, so the app can announce them. The wrapper never adds a role or the deprecated
     `aria-grabbed`/`aria-dropeffect`; it sets `tabIndex` when the element is not focusable,
     `aria-disabled` when disabled, and `aria-describedby` only when the app passes `describedBy`.

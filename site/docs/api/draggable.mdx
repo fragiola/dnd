@@ -31,7 +31,7 @@ import { Draggable } from "@fragiola/dnd-react/draggable";
 | `collision` | `CollisionStrategy` | `pointerWithin` | how the target is found ([collision](/docs/concepts/collision)) |
 | `translate` | `boolean` | `true` | whether the element follows the pointer; `false` when a `DragOverlay` shows it |
 | `describedBy` | `string` | | the id of the element describing how to drag it (`aria-describedby`) |
-| `onDragStart` | `(event: DragStartEvent) => void` | | the drag started, past the activation |
+| `onDragStart` | `(event: DragStartEvent) => void` | | the drag started, past the activation; `operation.target` is the droppable it starts over |
 | `onDragMove` | `(event: DragMoveEvent) => void` | | the dragged box moved, at most once per frame |
 | `onDragEnd` | `(event: DropEvent) => void` | | it was released, on a target or not (`event.operation.target`) |
 | `onDragCancel` | `(event: DragCancelEvent) => void` | | it was cancelled: nothing dropped |

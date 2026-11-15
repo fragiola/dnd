@@ -38,8 +38,8 @@ zone.unregister();
 ```
 
 `registerDraggable(element, options)` and `registerDroppable(element, options)` take the options
-of [`Draggable`](/docs/api/draggable#props) and [`Droppable`](/docs/api/droppable#props) (the
-draggable's also `handle`, the element a drag starts from) and return a registration:
+of [`Draggable`](/docs/api/draggable#props) and [`Droppable`](/docs/api/droppable#props) without the React-only `describedBy` (the
+draggable's also take `handle`, the element a drag starts from) and return a registration:
 
 | member | |
 | --- | --- |
@@ -117,6 +117,7 @@ measured when the drag starts, so the dragged element's own `translate` never gr
 
 ## Errors in app code
 
-App code that throws (a callback, a listener, an `accepts` predicate) never leaves the space
-stuck: the drag is cancelled cleanly and the error is rethrown from a timer of the element's
-window.
+App code that throws never leaves the space
+stuck: a throwing drag callback or listener cancels the drag at the end of that frame, a throwing
+`accepts` or middleware refuses that droppable, and a throw during the drop callbacks does not undo
+the drop. The error is rethrown from a timer of the element's window.

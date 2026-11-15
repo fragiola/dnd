@@ -25,7 +25,7 @@ import { Droppable } from "@fragiola/dnd-react/droppable";
 | `space` | `DragSpace` | its document's | an explicit space from `createDragSpace` |
 | `accepts` | `string[] \| (source: DragSource) => boolean` | everything | the draggable `type`s it takes, or a predicate of the source |
 | `disabled` | `boolean` | `false` | never a target |
-| `onDragEnter` | `(event: DroppableEvent<"drag-enter">) => void` | | a drag entered it |
+| `onDragEnter` | `(event: DroppableEvent<"drag-enter">) => void` | | a drag entered it, or started over it (right after the draggable's `onDragStart`) |
 | `onDragOver` | `(event: DroppableEvent<"drag-over">) => void` | | a drag moved over it, once per frame |
 | `onDragLeave` | `(event: DroppableEvent<"drag-leave">) => void` | | a drag left it |
 | `onDrop` | `(event: DroppableEvent<"drop">) => void` | | an accepted source was released over it, before the draggable's `onDragEnd` |
@@ -60,4 +60,5 @@ undefined then.
 | `data-dnd-refused` | a refused (or vetoed) source hovers it |
 | `data-dnd-disabled`, `aria-disabled="true"` | `disabled` |
 
-A droppable re-renders on enter, leave and drop, never while a drag moves inside it.
+A droppable re-renders when a drag it would accept starts and ends, and on enter and leave; never
+while a drag moves inside it.

@@ -172,8 +172,8 @@ function Board() {
 ```
 
 `DragOverlay` is the only part that renders HTML: while a drag runs, a `div` portalled into the
-document's `body`, fixed over the dragged box (`position`, geometry and `pointer-events: none` are
-its only inline style), moved without rendering React. `translate={false}` keeps the source in
+document's `body`, fixed over the dragged box (`position`, geometry, `box-sizing: border-box` and
+`pointer-events: none` are its only inline style), moved without rendering React. `translate={false}` keeps the source in
 place.
 
 ## Hooks
@@ -190,12 +190,12 @@ imports, with the core they pull (min + gzip, React left out, the development ch
 
 | imported                             | min + gzip       | target (D13)   |
 | ------------------------------------ | ---------------- | -------------- |
-| `@fragiola/dnd-react`                | 3.5 KB           | ≤ 4 KB         |
-| `@fragiola/dnd-react` + `/draggable` | 7.7 KB (+4.3 KB) | ≤ 2 KB extra   |
-| `@fragiola/dnd-react` + `/droppable` | 4.6 KB (+1.1 KB) | ≤ 1.5 KB extra |
-| all three                            | 8.1 KB           |                |
-| only `Draggable`                     | 6.1 KB           |                |
-| only `Droppable`                     | 2.9 KB           |                |
+| `@fragiola/dnd-react`                | 3.6 KB           | ≤ 4 KB         |
+| `@fragiola/dnd-react` + `/draggable` | 8.0 KB (+4.3 KB) | ≤ 2 KB extra   |
+| `@fragiola/dnd-react` + `/droppable` | 4.8 KB (+1.1 KB) | ≤ 1.5 KB extra |
+| all three                            | 8.4 KB           |                |
+| only `Draggable`                     | 6.3 KB           |                |
+| only `Droppable`                     | 3.0 KB           |                |
 
 The draggable misses its target. Most of it is behaviour the core's draggable capability carries
 for every draggable: the pointer sensor (activation, capture, the press claim and its focus), the

@@ -56,8 +56,9 @@ There is no provider: both register in their document's drag space, created on f
 registration returns `{ update(options), unregister(), getState(), subscribe(listener) }`, an
 external store for `useSyncExternalStore`. During a drag the core writes only the CSS `translate`
 of the dragged element (never `transform`), once per animation frame, and `touch-action: none` on
-a handle; every other look is the app's. App code that throws (a callback, a listener, an `accepts`
-predicate) never leaves the space stuck: the drag is cancelled cleanly and the error is rethrown
-from a timer of the element's window.
+a handle; every other look is the app's. App code that throws never leaves the space stuck:
+a throwing drag callback or listener cancels the drag, a throwing `accepts` or middleware refuses
+that droppable, and a throw during the drop callbacks does not undo the drop; the error is
+rethrown from a timer of the element's window.
 
 Docs and examples: <https://fragiola.com/dnd>. MIT, see [LICENSE](LICENSE).

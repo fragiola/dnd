@@ -21,17 +21,17 @@ Measured on the development machine; informative, not gates.
 
 | what                                                            | result                                                                                                                                                                |
 | --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@fragiola/dnd-react` (shared entry, with the core), min + gzip | 3.5 KB (target ≤ 4 KB: met)                                                                                                                                           |
-| `+ /draggable`                                                  | 7.7 KB, +4.3 KB over the shared entry (target ≤ +2 KB: **missed**)                                                                                                    |
-| `+ /droppable`                                                  | 4.6 KB, +1.1 KB (target ≤ +1.5 KB: met)                                                                                                                               |
-| all three entries                                               | 8.1 KB                                                                                                                                                                |
-| only `Draggable` / only `Droppable` (tree-shaken)               | 6.1 KB / 2.9 KB                                                                                                                                                       |
+| `@fragiola/dnd-react` (shared entry, with the core), min + gzip | 3.6 KB (target ≤ 4 KB: met)                                                                                                                                           |
+| `+ /draggable`                                                  | 8.0 KB, +4.3 KB over the shared entry (target ≤ +2 KB: **missed**)                                                                                                    |
+| `+ /droppable`                                                  | 4.8 KB, +1.1 KB (target ≤ +1.5 KB: met)                                                                                                                               |
+| all three entries                                               | 8.4 KB                                                                                                                                                                |
+| only `Draggable` / only `Droppable` (tree-shaken)               | 6.3 KB / 3.0 KB                                                                                                                                                       |
 | React commits while a drag moves inside one droppable           | 0                                                                                                                                                                     |
 | React commits at a drag's start                                 | 1 for the source, 1 per droppable of its scope (it becomes active), 1 for the droppable it starts over                                                                |
 | React commits per target change                                 | 1 for the droppable left, 1 for the one entered (a `DragOverlay` adds 1)                                                                                              |
 | React commits at the drop                                       | 1 for the source, 1 per droppable it met (back to rest)                                                                                                               |
 | `translate` writes                                              | at most 1 per animation frame                                                                                                                                         |
-| unit and component tests                                        | 244 (core 104, React 44, examples 41, site 32, playground 23)                                                                                                         |
+| unit and component tests                                        | 250 (core 108, React 46, examples 41, site 32, playground 23)                                                                                                         |
 | e2e                                                             | 92 in the playground (Chromium, Firefox, a phone), 112 in the examples app with `E2E_ALL_THEMES=1` (every example in five themes, inside an iframe, and its own spec) |
 
 The sizes come from `pnpm size`: an app's production build of the entries it imports, with the
@@ -123,6 +123,23 @@ Open:
   Events: the two never meet, and their attributes do not collide (`data-dragging`,
   `data-dnd-dragging`).
 
+## Fixed in the Epic's review pass
+
+Each with a regression test, besides E1–E3 above:
+
+- A wrapper read its consumers' refs (its `ref`, the child's own) only when the element attached,
+  so a ref that changed later never received the element; they now follow each render, as on a
+  plain element, while the registration still attaches once (`packages/react/tests/wrapper.test.tsx`).
+- `space.check`/`can` took the first draggable and droppable of each id, so ids repeated across
+  scopes answered for the wrong droppable; it now picks the pair that shares a scope
+  (`packages/core/tests/verbs.test.ts`).
+- A throw in the frame a release flushes cancelled the drag, and the drop still ran after it
+  (`onDragCancel`, then `onDrop` and `onDragEnd`); the drop now stops there
+  (`packages/core/tests/errors.test.ts`).
+- Docs that contradicted the code: the errors paragraph, the styling guide's "cancel" on a release,
+  `subscribe`'s options, the shared entry's contents, refocus after Tab, the overlay's inline style
+  and a droppable's re-renders.
+
 ## For the sortable and swappable Epic (#6)
 
 - **Re-parenting during a drag.** A sortable moves the dragged element (or its siblings) in the
@@ -140,6 +157,6 @@ Open:
   imperatively during the drag, one React commit when the order changes, none per frame.
 - **Size.** Sortable will import the draggable and droppable logic through the shared core; the
   draggable entry is already over its target, so sortable's budget should be measured against
-  "all three" (8.1 KB), and shared pieces moved into the core only when two capabilities use them.
+  "all three" (8.4 KB), and shared pieces moved into the core only when two capabilities use them.
 - **Scroll anchoring (E4)**: a sortable list is a scroll container whose children move; setting
   `overflow-anchor: none` on the containers during a drag likely belongs in the core then.
