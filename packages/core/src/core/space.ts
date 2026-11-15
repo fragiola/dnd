@@ -6,6 +6,7 @@
 // Registrations without an explicit space live in one registry and belong to the space of their
 // element's *current* document, read when a drag starts: an element Dockable carries into a
 // popout meets the droppables of the popout.
+import { guarded } from "./dom";
 import type {
     CommandResult,
     DraggableState,
@@ -174,7 +175,7 @@ function makeSpace(doc: Document, entries?: Set<DragEntry>): DragSpace {
             if (
                 target.scope() !== source.scope() ||
                 target.disabled() ||
-                !target.accepts(source.source())
+                !accepts(target, source.source())
             )
                 return fail("refused", "The droppable does not take it.");
             return askDrop(space, source.source(), target, true);
@@ -278,12 +279,27 @@ export function entriesOf(space: DragSpace): DragEntry[] {
     );
 }
 
-/** Tells `space`'s listeners of `event`, those of its scope or of none. @internal */
-export function emit(space: DragSpace, event: DragSpaceEvent): void {
-    for (const { listener, scope } of [...stateOf(space).listeners]) {
+/**
+ * Tells `space`'s listeners of `event`, those of its scope or of none; false when one threw (it
+ * is reported, and the others still hear it). @internal
+ */
+export function emit(space: DragSpace, event: DragSpaceEvent): boolean {
+    const { listeners, document: doc } = stateOf(space);
+    let ok = true;
+    for (const { listener, scope } of [...listeners]) {
         if (scope === undefined || scope === event.operation.scope)
-            listener(event);
+            ok = guarded(doc.defaultView, () => listener(event)) && ok;
     }
+    return ok;
+}
+
+/** Whether `target` takes `source`, by its `accepts`; one that throws refuses. @internal */
+export function accepts(target: DroppableEntry, source: DragSource): boolean {
+    let accepted = false;
+    guarded(target.element.ownerDocument.defaultView, () => {
+        accepted = target.accepts(source);
+    });
+    return accepted;
 }
 
 /**

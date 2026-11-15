@@ -5,9 +5,10 @@
 // first, and only then clears `translate` and the states.
 import type { AutoScroll } from "./auto-scroll";
 import { pointerWithin } from "./collision";
-import { listen, measure } from "./dom";
+import { guarded, listen, measure } from "./dom";
 import {
     type ActiveSession,
+    accepts,
     askDrop,
     type DraggableEntry,
     type DragSpace,
@@ -62,8 +63,10 @@ export interface Session extends ActiveSession {
 }
 
 /**
- * Starts a drag of `entry` in `space` from `origin`, or nothing when one is in progress there.
- * @internal
+ * Starts a drag of `entry` in `space` from `origin`, or nothing when one is in progress there (or
+ * app code threw at its start, which cancels it). Every app callback runs guarded: a throw is
+ * reported asynchronously and cancels the drag at the end of that frame, so the space is never
+ * left stuck. @internal
  */
 export function startDrag(
     space: DragSpace,
@@ -112,7 +115,7 @@ export function startDrag(
                 continue;
             let accepted = met.get(other);
             if (accepted === undefined) {
-                accepted = other.accepts(source);
+                accepted = accepts(other, source);
                 met.set(other, accepted);
                 other.start(accepted);
             }
@@ -157,10 +160,17 @@ export function startDrag(
         return { type, operation: session.operation, input };
     }
 
+    /** whether app code threw during the drag: the drag is cancelled at the next safe point */
+    let broken = false;
+    /** runs app code; a throw is reported and breaks the drag */
+    function app(call: () => void): void {
+        if (!guarded(view, call)) broken = true;
+    }
+
     function send(type: DragEventType): DragSpaceEvent<DragEventType> {
         const sent = event(type);
-        entry.emit(sent);
-        emit(space, sent);
+        app(() => entry.emit(sent));
+        if (!emit(space, sent)) broken = true;
         return sent;
     }
 
@@ -196,15 +206,29 @@ export function startDrag(
         hovered = hit;
         target = allowed ? hit : undefined;
         session.operation = snapshot("dragging", delta, drag);
-        left?.entry.hover("drag-leave", event("drag-leave"), leftAllowed);
+        if (left)
+            app(() =>
+                left.entry.hover(
+                    "drag-leave",
+                    event("drag-leave"),
+                    leftAllowed,
+                ),
+            );
         if (hit)
-            hit.entry.hover(
-                entered ? "drag-enter" : "drag-over",
-                event(entered ? "drag-enter" : "drag-over"),
-                allowed,
+            app(() =>
+                hit.entry.hover(
+                    entered ? "drag-enter" : "drag-over",
+                    event(entered ? "drag-enter" : "drag-over"),
+                    allowed,
+                ),
             );
         if (target?.entry !== before?.entry) send("drag-over");
         send("drag-move");
+        // a callback threw: the drag ends here, cleanly, as a cancel
+        if (broken) {
+            session.cancel();
+            return;
+        }
         scroller?.move(pointer);
         // under the pointer wherever its container scrolled to
         writer?.write(start.x - base.x + delta.x, start.y - base.y + delta.y);
@@ -271,8 +295,8 @@ export function startDrag(
                 rects: { ...session.operation.rects, target: into?.rect },
             };
             const dropped = event("drop");
-            into?.entry.drop(dropped);
-            entry.emit(dropped);
+            if (into) app(() => into.entry.drop(dropped));
+            app(() => entry.emit(dropped));
             emit(space, dropped);
             finish();
         },
@@ -295,6 +319,11 @@ export function startDrag(
     if (view) session.onEnd(listen(view, "resize", session.invalidate));
     entry.dragging(true);
     send("drag-start");
+    // a throwing `onDragStart` (or listener) cancels the drag before it follows anything
+    if (broken) {
+        session.cancel();
+        return undefined;
+    }
     schedule();
     return session;
 }
