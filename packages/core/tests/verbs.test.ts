@@ -21,6 +21,8 @@ describe("the drag space's verbs", () => {
         const space = getDragSpace(document);
         const zone = droppable({ id: "z" }, LEFT);
         const { element } = draggable({ id: "c" });
+        expect(space.get("document")).toBe(document);
+        expect(createDragSpace({ document }).get("document")).toBe(document);
         expect(space.get("draggable-ids")).toEqual(["c"]);
         expect(space.get("droppable-ids")).toEqual(["z"]);
         expect(space.get("operation")).toBeUndefined();

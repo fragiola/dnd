@@ -9,10 +9,13 @@
 // Claiming the press (D11): a press that may become a drag is claimed with `preventDefault()` on
 // `pointerdown` itself, not at activation. An ancestor library (Grid Layout's item) decides on
 // that same `pointerdown` whether to start its own gesture, by `defaultPrevented`, so a later
-// claim would come too late. Cancelling `pointerdown` only suppresses the compatibility mouse
-// events (`mousedown`, `mouseup`); focus, `click` and touch scrolling are unaffected, and the
-// text selection a mouse press could start is prevented while it lasts (`selectstart`). A press
-// already claimed by someone else (`defaultPrevented`) is ignored.
+// claim would come too late. Cancelling `pointerdown` suppresses the compatibility mouse events
+// (`mousedown`, `mouseup`) and, with them, the focus a press gives: measured in Chromium and
+// Firefox, so the sensor gives that focus itself (`focusPress`), to the press's focusable element
+// within the activator, as the browser would have. `click` and touch scrolling are unaffected,
+// and the text selection a mouse press could start is prevented while it lasts (`selectstart`).
+// Native controls and `data-dnd-no-drag` subtrees are never claimed, so they keep the browser's
+// own press. A press already claimed by someone else (`defaultPrevented`) is ignored.
 import { listen } from "../dom";
 import type { Session } from "../operation";
 import type { Point } from "../types";
@@ -35,6 +38,25 @@ function exempt(target: EventTarget | null, activator: Element): boolean {
 }
 
 const prevent = (event: Event) => event.preventDefault();
+
+/**
+ * Gives the focus a press would have given, had its `pointerdown` not been claimed: to the
+ * closest focusable element from the press's target up to the activator.
+ */
+function focusPress(target: EventTarget | null, activator: HTMLElement): void {
+    for (
+        let element = target as HTMLElement | null;
+        element;
+        element = element.parentElement
+    ) {
+        if (element.tabIndex >= 0 || element.hasAttribute?.("tabindex")) {
+            if (element.ownerDocument.activeElement !== element)
+                element.focus?.({ preventScroll: true });
+            return;
+        }
+        if (element === activator) return;
+    }
+}
 
 const point = (event: PointerEvent): Point => ({
     x: event.clientX,
@@ -125,8 +147,9 @@ export function bindPointer(
             exempt(down.target, activator)
         )
             return;
-        // the claim: see the header (D11)
+        // the claim, and the focus it took: see the header (D11)
         down.preventDefault();
+        focusPress(down.target, activator);
         const doc = activator.ownerDocument;
         const view = doc.defaultView;
         const origin = point(down);

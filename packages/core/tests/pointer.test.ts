@@ -8,6 +8,19 @@ const ZONE = { x: 100, y: 0, width: 100, height: 100 };
 const dragging = () => getDragSpace(document).get("operation") !== undefined;
 
 describe("the pointer sensor", () => {
+    it("claims the press and gives the focus the claim took: the focusable element pressed", () => {
+        const { element: source } = draggable({ id: "c" });
+        const inner = element({ x: 0, y: 0, width: 10, height: 10 }, source);
+        inner.tabIndex = -1;
+        const text = element({ x: 0, y: 0, width: 10, height: 10 }, source);
+        const press = pointer(text, 5, 5);
+        expect(press.down.defaultPrevented).toBe(true);
+        expect(document.activeElement).toBe(source);
+        press.release(5, 5);
+        pointer(inner, 5, 5).release(5, 5);
+        expect(document.activeElement).toBe(inner);
+    });
+
     it("starts a mouse drag once the pointer moved 3 px, or the distance given", () => {
         const onDragStart = vi.fn();
         const { element: source, registration } = draggable({

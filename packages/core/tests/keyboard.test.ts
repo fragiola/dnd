@@ -33,6 +33,28 @@ function press(...names: string[]) {
 const target = () => getDragSpace(document).get("operation")?.target?.id;
 
 describe("the keyboard sensor", () => {
+    it("makes a non-focusable activator a tab stop while registered, and leaves a focusable one", () => {
+        const plain = document.createElement("div");
+        const button = document.createElement("button");
+        const own = document.createElement("div");
+        own.tabIndex = -1;
+        document.body.append(plain, button, own);
+        const registrations = [plain, button, own].map((element, id) =>
+            registerDraggable(element, { id }),
+        );
+        expect(plain.getAttribute("tabindex")).toBe("0");
+        expect(button.hasAttribute("tabindex")).toBe(false);
+        expect(own.getAttribute("tabindex")).toBe("-1");
+        // a handle becomes the tab stop instead
+        const handle = document.createElement("span");
+        plain.append(handle);
+        registrations[0]?.update({ id: 0, handle });
+        expect(plain.hasAttribute("tabindex")).toBe(false);
+        expect(handle.getAttribute("tabindex")).toBe("0");
+        for (const registration of registrations) registration.unregister();
+        expect(handle.hasAttribute("tabindex")).toBe(false);
+    });
+
     it.each([" ", "Enter"])(
         "grabs with %j, moves by 25 px steps, and drops with it",
         (grab) => {

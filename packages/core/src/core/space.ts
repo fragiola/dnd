@@ -182,6 +182,8 @@ function makeSpace(doc: Document, entries?: Set<DragEntry>): DragSpace {
         get(key, ...[payload]) {
             const { draggableId, droppableId } = (payload ?? {}) as Payload;
             switch (key) {
+                case "document":
+                    return state.document;
                 case "operation":
                     return state.session?.operation;
                 case "draggable-ids":

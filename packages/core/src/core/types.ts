@@ -213,6 +213,8 @@ export interface DropPayload {
 
 /** What `space.get(key, payload)` reads. */
 export interface DragSpaceGetMap {
+    /** the document the space's drags run in (where an overlay portals) */
+    document: { payload: NoPayload; result: Document };
     /** the drag in progress, if any */
     operation: { payload: NoPayload; result: DragOperation | undefined };
     /** the ids of the draggables registered in the space */

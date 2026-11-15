@@ -130,12 +130,17 @@ export function registerDraggable(
         const activator = handle ?? element;
         const unbindPointer = bindPointer(activator, context);
         const unbindKeyboard = bindKeyboard(activator, context);
+        // the activator is a tab stop (D10): given one when it is not focusable already
+        const tabStop =
+            activator.tabIndex < 0 && !activator.hasAttribute("tabindex");
+        if (tabStop) activator.tabIndex = 0;
         // a handle is where a touch drags, never scrolls (D7)
         const touchAction = handle?.style.touchAction;
         if (handle) handle.style.touchAction = "none";
         return () => {
             unbindPointer();
             unbindKeyboard();
+            if (tabStop) activator.removeAttribute("tabindex");
             if (handle) handle.style.touchAction = touchAction ?? "";
         };
     }
