@@ -196,8 +196,11 @@ These are the decisions of Epic #6, on top of D1–D14, which still hold.
      sort exactly as a drop: `ctx.payload` is `{ draggableId: <item id>, droppableId: <group> }`,
      `ctx.target.data` is the `SortableGroup`'s `data`, a dry run when the target group changes and
      the real one on release; a veto puts the preview back home and the drop reports `to = from`.
-     `can`/`check("drop")` know a group only during a sort. A plain `Droppable` of the scope under
-     the pointer still takes the item (the list goes back to rest, `to = from`). A group name
+     `can`/`check("drop")` know a group only during a sort, and answer for the item asked about. A
+     plain `Droppable` of the scope under the pointer still takes the item (the list goes back to
+     rest, `to = from`), unless an accepting group's box under the pointer is smaller (a droppable
+     around a list leaves its sort alone). A disabled group is never sorted into nor within, but
+     its items may leave it for an accepting group. A group name
      shares the id space of the scope's droppables: keep them distinct.
    - **Across groups.** The target decides, as a droppable's `accepts` does: a group takes items of
      another group when one of its members (an item or its `SortableGroup`) lists that group in
@@ -235,7 +238,8 @@ These are the decisions of Epic #6, on top of D1–D14, which still hold.
    hovering an item of a group that accepts the source's (its own always) shifts only that target
    into the source's place (corners on the inline start) and marks it `data-dnd-swap-target`.
    `onSwap({ source, target?, canceled })`, each `{ id, group, index }` (`index` is required so the
-   helpers stay pure); no target when it was dropped over none (or a veto). The middleware sees
+   helpers stay pure); no target when it was dropped over none (or a veto). An item is never a
+   target of its own drag (the arrows count from its place, and back to it is no swap). The middleware sees
    `{ draggableId: <source>, droppableId: <target> }`, and `can("drop")` answers at any time. The
    keyboard picks targets in reading order. Helpers: `swapItems(list, a, b)` and
    `swapBetween(lists, event)`.

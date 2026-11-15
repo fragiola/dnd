@@ -59,8 +59,8 @@ interface SwapEvent {
 }
 ```
 
-There is no `target` when the item was dropped over no swappable item (or a drop middleware vetoed
-it), and none when it was cancelled. Apply it with [`swapItems`](/docs/api/helpers#swapitems) or
+There is no `target` when the item was dropped over no other swappable item (an item is never a
+target of its own drag), when a drop middleware vetoed it, and when it was cancelled. Apply it with [`swapItems`](/docs/api/helpers#swapitems) or
 [`swapBetween`](/docs/api/helpers#swapbetween). The core clears the shifts after `onSwap`.
 
 ## State

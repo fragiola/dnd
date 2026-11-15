@@ -272,6 +272,36 @@ describe("groups", () => {
         });
     });
 
+    it("moves an item out of its disabled group into one that accepts it, by pointer and keyboard", () => {
+        const onSortEnd = vi.fn();
+        const a = column("a", 0, { onSortEnd }, 3);
+        sortableGroup(
+            { group: "a", disabled: true },
+            { x: 0, y: 0, width: 100, height: 180 },
+        );
+        const b = column("b", 200, { accepts: ["a"] }, 2);
+        const source = a[2] as (typeof a)[0];
+        const press = grab(source);
+        // over b's first item, its upper half: b opens a gap at its top
+        press.by(200, -125);
+        expect(translate(b)).toEqual(["0px 60px", "0px 60px"]);
+        press.drop(200, -125);
+        expect(onSortEnd.mock.calls[0]?.[0]).toMatchObject({
+            from: { group: "a", index: 2 },
+            to: { group: "b", index: 0 },
+        });
+        // the keyboard leaves it at once, into b
+        source.element.focus();
+        for (const name of [" ", "ArrowDown", "Enter"]) {
+            key(name);
+            flush();
+        }
+        expect(onSortEnd.mock.calls[1]?.[0].to).toEqual({
+            group: "b",
+            index: 0,
+        });
+    });
+
     it("goes through the middleware as a drop of the item on the group; a veto keeps it home", () => {
         const onSortEnd = vi.fn();
         const space = getDragSpace(document);
@@ -314,6 +344,47 @@ describe("groups", () => {
             index: 0,
         });
         registration.unregister();
+    });
+    it("sorts inside a plain droppable around the list; the droppable takes it outside the list", () => {
+        const onDrop = vi.fn();
+        const onSortEnd = vi.fn();
+        const board = element({ x: 0, y: 0, width: 400, height: 400 });
+        const registration = registerDroppable(board, { id: "board", onDrop });
+        const a = column("a", 0, { onSortEnd });
+        const press = grab(a[0] as (typeof a)[0]);
+        press.by(0, 130);
+        expect(translate(a).slice(1)).toEqual(["0px -60px", "0px -60px", ""]);
+        press.drop(0, 130);
+        expect(onSortEnd.mock.calls[0]?.[0].to).toEqual({
+            group: "a",
+            index: 2,
+        });
+        expect(onDrop).not.toHaveBeenCalled();
+        const again = grab(a[0] as (typeof a)[0]);
+        again.by(250, 300);
+        again.drop(250, 300);
+        expect(onDrop).toHaveBeenCalledOnce();
+        registration.unregister();
+    });
+
+    it('answers check("drop") for the item asked about, not the one sorted', () => {
+        column("a", 0, {}, 2);
+        const b = column("b", 200, { accepts: ["c"] }, 2);
+        column("c", 400, {}, 1);
+        const space = getDragSpace(document);
+        const press = grab(b[0] as (typeof b)[0]);
+        press.by(0, 10);
+        // a takes no b and no c; b takes c, and not a
+        expect(
+            space.check("drop", { draggableId: "b1", droppableId: "a" }).ok,
+        ).toBe(false);
+        expect(
+            space.check("drop", { draggableId: "c0", droppableId: "b" }).ok,
+        ).toBe(true);
+        expect(
+            space.check("drop", { draggableId: "a0", droppableId: "b" }).ok,
+        ).toBe(false);
+        press.drop(0, 10);
     });
 });
 

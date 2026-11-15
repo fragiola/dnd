@@ -295,12 +295,29 @@ function createSort(space: DragSpace, source: Item): Sort {
                 id: () => name,
                 scope: () => scope,
                 data: () => group.container?.options().data,
-                disabled: () => !!group.container?.options().disabled,
-                accepts: () =>
-                    name === sourceInfo.group ||
-                    [group.container, ...group.items].some((member) =>
-                        admits(member?.options().accepts, sourceInfo),
-                    ),
+                // the source's own disabled group is measured (its item leaves from it), and
+                // refuses the item instead: never sorted within
+                disabled: () =>
+                    name !== sourceInfo.group &&
+                    !!group.container?.options().disabled,
+                // the item asked about (the sort's source, or another in `check("drop")`)
+                accepts(_, from) {
+                    const each = from && items?.get(from)?.options();
+                    if (!each || group.container?.options().disabled)
+                        return false;
+                    const asked: SortSource = {
+                        id: each.id,
+                        group: each.group,
+                        type: each.type,
+                        data: each.data,
+                    };
+                    return (
+                        name === asked.group ||
+                        [group.container, ...group.items].some((member) =>
+                            admits(member?.options().accepts, asked),
+                        )
+                    );
+                },
                 rect() {
                     members(group);
                     group.rects = group.items.map((item) =>
@@ -487,21 +504,24 @@ function createSort(space: DragSpace, source: Item): Sort {
             dragRect,
             droppables,
         }: CollisionInput<Candidate>) => {
-            // a plain droppable under the pointer (a trash zone) takes the item
-            let plain: Candidate | undefined;
+            // a plain droppable under the pointer (a trash zone) takes the item, unless an
+            // accepting group's box under it is smaller (a droppable around the list)
+            let inner: Candidate | undefined;
             const open: Candidate[] = [];
             for (const candidate of droppables) {
                 const group = byEntry.get(candidate.entry);
                 if (group && candidate.accepted) open.push(candidate);
-                else if (
-                    !group &&
+                if (
+                    (!group || candidate.accepted) &&
                     inside(pointer, candidate.rect) &&
-                    (!plain ||
+                    (!inner ||
                         candidate.rect.width * candidate.rect.height <
-                            plain.rect.width * plain.rect.height)
+                            inner.rect.width * inner.rect.height)
                 )
-                    plain = candidate;
+                    inner = candidate;
             }
+            const plain =
+                inner && !byEntry.has(inner.entry) ? inner : undefined;
             if (plain) {
                 at = undefined;
                 return plain;
@@ -551,8 +571,17 @@ function createSort(space: DragSpace, source: Item): Sort {
                 group.rects.length - (group === home ? 1 : 0);
             let group: Group | undefined = now.group;
             let index = now.index + (forward ? 1 : -1);
-            if (index < 0 || index > last(now.group)) {
-                group = order[order.indexOf(now.group) + (forward ? 1 : -1)];
+            const ordered = order.indexOf(now.group);
+            // out of its group's end, or out of a group that refuses it (its own, disabled)
+            if (index < 0 || index > last(now.group) || ordered < 0) {
+                group =
+                    order[
+                        ordered < 0
+                            ? forward
+                                ? 0
+                                : order.length - 1
+                            : ordered + (forward ? 1 : -1)
+                    ];
                 if (!group) return undefined;
                 index = forward ? 0 : last(group);
             }

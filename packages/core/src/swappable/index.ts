@@ -6,7 +6,10 @@
 // `data-dnd-swap-target`: both written by the core, so a preview never renders React. The app
 // applies `onSwap` to its own data (`swapItems`, `swapBetween`).
 import type { AutoScroll } from "../core/auto-scroll";
-import type { Session, SourceEntry } from "../core/operation";
+import { center } from "../core/dom";
+import type { Candidate, Session, SourceEntry } from "../core/operation";
+import type { KeyStep } from "../core/sensors/context";
+import { readingOrder } from "../core/sensors/keyboard";
 import { registerSource } from "../core/source";
 import {
     DEFAULT_SCOPE,
@@ -27,7 +30,7 @@ import type {
     Rect,
     Registration,
 } from "../core/types";
-import { createWriter, type Writer } from "../core/writer";
+import { createWriter, restRect, type Writer } from "../core/writer";
 import type { SwapPosition } from "./helpers";
 
 export {
@@ -134,6 +137,8 @@ function createSwap(space: DragSpace, source: Item) {
     const rtl = view?.getComputedStyle(source.element).direction === "rtl";
     let shown: Item | undefined;
     let writers: Writer[] = [];
+    /** the target (or its own place) the keyboard moved to */
+    let keyed: DroppableEntry | undefined;
 
     /** The item the drag would swap with now, and both boxes at rest. */
     function find(operation: DragOperation) {
@@ -141,12 +146,8 @@ function createSwap(space: DragSpace, source: Item) {
         const hit = session?.hovered();
         const item = hit && items?.get(hit.entry);
         if (!operation.target || !item || item === source) return undefined;
-        const from =
-            session
-                ?.targets()
-                .find((candidate) => candidate.entry === source.target)?.rect ??
-            operation.rects.source;
-        return { item, rect: hit.rect, from };
+        // the source's box at rest, without the offset it follows the pointer by
+        return { item, rect: hit.rect, from: restRect(source.element) };
     }
 
     function clear(): void {
@@ -190,6 +191,39 @@ function createSwap(space: DragSpace, source: Item) {
                 });
             }
         },
+        /**
+         * The next or previous target in reading order, its own place among them (it is no
+         * target of its own drag, but the arrows count from it, and back to it is "no swap")
+         */
+        step(
+            session: Session,
+            forward: boolean,
+            rtl: boolean,
+        ): KeyStep | undefined {
+            const own: Candidate = {
+                id: source.options().id,
+                rect: restRect(source.element),
+                entry: source.target,
+                accepted: true,
+            };
+            const order = readingOrder([...session.targets(), own], rtl);
+            const now = keyed ?? session.hovered()?.entry ?? own.entry;
+            const index = order.findIndex((each) => each.entry === now);
+            const next =
+                order[
+                    Math.max(
+                        0,
+                        Math.min(order.length - 1, index + (forward ? 1 : -1)),
+                    )
+                ];
+            if (!next) return undefined;
+            keyed = next.entry;
+            return {
+                point: center(next.rect),
+                rect: next.rect,
+                element: next.entry.element,
+            };
+        },
         end: clear,
     };
 }
@@ -224,6 +258,7 @@ export function registerSwappable(
             };
         },
         emit: (event) => swap?.emit(event),
+        step: (session, forward, rtl) => swap?.step(session, forward, rtl),
     });
     const target: DroppableEntry = {
         kind: "droppable",
@@ -235,7 +270,8 @@ export function registerSwappable(
         disabled: () => !!current.disabled,
         accepts(source, from) {
             const other = from && items?.get(from)?.options();
-            if (!other) return false;
+            // never a target of its own drag: dropped home, it swaps with nothing
+            if (!other || from === registered.entry) return false;
             const accepts = current.accepts;
             return (
                 other.group === current.group ||

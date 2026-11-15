@@ -29,7 +29,7 @@ import { Sortable, SortableGroup } from "@fragiola/dnd-react/sortable";
 | `scope` | `string` | the default scope | its group's scope |
 | `space` | `DragSpace` | its document's | an explicit space from `createDragSpace` |
 | `data` | `unknown` | | what the drop middleware sees as the target's data (`ctx.target.data`) |
-| `disabled` | `boolean` | `false` | the group is never sorted into, nor within |
+| `disabled` | `boolean` | `false` | the group is never sorted into, nor within; its items may still leave it |
 | `accepts` | `string[] \| (source: SortSource) => boolean` | | the other groups whose items it takes, with its items' own `accepts` |
 | `strategy` | `SortStrategy` | its items', else `verticalList` | how the group places and shifts items |
 | `className`, `style`, `render`, `ref`, `children` | | | as on [`Draggable`](/docs/api/draggable#props), with the group's state |

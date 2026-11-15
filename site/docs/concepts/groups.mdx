@@ -56,7 +56,7 @@ import { Sortable, SortableGroup } from "@fragiola/dnd-react/sortable";
 It is needed only to sort into a group while it is empty, or to the end of a container taller
 than its items. A non-empty list needs no wrapper. It can also carry the group's `strategy`,
 `data` (what a drop rule sees as the target's data) and `disabled` (a disabled group is never
-sorted into, nor within). See [`SortableGroup`](/docs/api/sortable-group).
+sorted into, nor within; its items may still leave it for a group that accepts them). See [`SortableGroup`](/docs/api/sortable-group).
 
 ## A sort is a drop on a group
 
@@ -82,7 +82,8 @@ space.use((ctx, next) =>
 
 `get("droppable-ids")` lists the groups only during a sort, and `can`/`check("drop")` know a group
 only then. A plain `Droppable` of the same scope under the pointer still takes the item (a trash
-zone): the list goes back to rest and `onSortEnd` reports `to` equal to `from`.
+zone): the list goes back to rest and `onSortEnd` reports `to` equal to `from`. A droppable around
+a list does not: under the pointer, the smaller of an accepting group and a droppable wins.
 
 <Callout type="warn" title="Group names are droppable ids">
 A group's name shares the id space of its scope's droppables. Keep group names and droppable ids

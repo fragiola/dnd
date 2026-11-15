@@ -154,7 +154,48 @@ describe("a swap", () => {
     });
 });
 
+describe("its own place", () => {
+    it("is never a target of its own drag: the middleware never sees it, the drop swaps nothing", () => {
+        const space = getDragSpace(document);
+        const seen: unknown[] = [];
+        const off = space.use((ctx, next) => {
+            seen.push(ctx.payload.droppableId);
+            return next();
+        });
+        const onSwap = vi.fn<(event: SwapEvent) => void>();
+        const items = row("s", 0, { onSwap }, 3);
+        const press = grab(items[1] as (typeof items)[0]);
+        press.by(4, 4);
+        press.drop(4, 4);
+        expect(seen).not.toContain("s1");
+        expect(onSwap.mock.calls[0]?.[0].target).toBeUndefined();
+        expect(onSwap.mock.calls[0]?.[0].operation.target).toBeUndefined();
+        off();
+    });
+});
+
 describe("the keyboard", () => {
+    it("counts its arrows from the item's own place, and back to it swaps nothing", () => {
+        const onSwap = vi.fn<(event: SwapEvent) => void>();
+        const items = row("s", 0, { onSwap }, 3);
+        items[1]?.element.focus();
+        key(" ");
+        flush();
+        key("ArrowRight");
+        flush();
+        expect(marked(items)).toEqual([false, false, true]);
+        key("ArrowLeft");
+        flush();
+        expect(marked(items)).toEqual([false, false, false]);
+        key("ArrowLeft");
+        flush();
+        expect(marked(items)).toEqual([true, false, false]);
+        key("ArrowRight");
+        flush();
+        key("Enter");
+        expect(onSwap.mock.calls[0]?.[0].target).toBeUndefined();
+    });
+
     it("picks the targets in reading order, and Enter swaps", () => {
         const onSwap = vi.fn<(event: SwapEvent) => void>();
         const items = row("s", 0, { onSwap }, 3);
