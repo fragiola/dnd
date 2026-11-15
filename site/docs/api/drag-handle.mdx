@@ -1,0 +1,58 @@
+---
+title: DragHandle
+description: The wrapper that makes its single child the only place its draggable's drag starts, and its tab stop, found through the DOM with no context.
+---
+
+Inside a draggable's element, a `DragHandle` makes its child the only place a drag starts, and
+the draggable's tab stop. The rest of the draggable stays as it is: its text selectable, its
+controls working. It finds its draggable through the DOM (the closest
+`[data-dnd-part~="draggable"]` around it), not a context, so it can sit anywhere inside the
+draggable, across component boundaries, mounted before or after it.
+
+```tsx title="row.tsx"
+import { DragHandle, Draggable } from "@fragiola/dnd-react/draggable";
+
+<Draggable id={task.id}>
+    <article aria-label={task.title}>
+        <DragHandle>
+            <button type="button" aria-label={`Move ${task.title}`}>
+                <GripVertical aria-hidden="true" />
+            </button>
+        </DragHandle>
+        <p>{task.title}</p>
+    </article>
+</Draggable>;
+```
+
+A `<button>` may be a handle: buttons never start a drag, except the one that is the handle.
+
+## Props
+
+| prop | type | |
+| --- | --- | --- |
+| `describedBy` | `string` | the id of the element describing how to drag it (`aria-describedby`) |
+| `className` | `string \| (state) => string \| undefined` | added to the element's own |
+| `style` | `CSSProperties \| (state) => CSSProperties \| undefined` | merged over the element's own |
+| `render` | `ReactElement \| (props, state) => ReactElement` | the element, when there is no child to wrap |
+| `ref` | `Ref<HTMLElement>` | merged with the wrapper's and the child's |
+| `children` | one element | the handle; it must forward `ref` and props |
+
+The drag's options (`id`, `activation`, `keyboard`, …) are the draggable's.
+
+## State and attributes
+
+The handle shows its draggable's state, `{ dragging, disabled }`.
+
+| attribute or style | when |
+| --- | --- |
+| `data-dnd-part="handle"`, `data-dnd-handle` | always |
+| `data-dnd-dragging` | its draggable is dragged |
+| `data-dnd-disabled`, `aria-disabled="true"` | its draggable is disabled |
+| `aria-describedby` | `describedBy` is set |
+| `tabindex="0"` | when the handle is not focusable already |
+| `touch-action: none` (inline) | always: a touch on the handle drags, never scrolls |
+
+A handle outside a draggable's element has no effect, and says so with `console.error` in
+development.
+
+<Example id="drag-handle" />

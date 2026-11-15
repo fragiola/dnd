@@ -1,0 +1,40 @@
+---
+title: Limitations and roadmap
+description: What the first release does not do yet, the limits known today, and what comes next, starting with sortable and swappable lists.
+---
+
+## Roadmap
+
+1. **Sortable and swappable** (next): reordering within and across lists, and swapping two
+   items, as their own entries (`/sortable`, `/swappable`), built on the same drag space.
+2. **Publishing**: the packages on npm, a changelog and these pages on fragiola.com.
+3. **Other adapters**: the core is framework-free so that Vue, Angular and others can follow
+   React.
+
+## Not planned
+
+Modifiers beyond auto-scroll (axis lock, snap to grid, restrict to a container), multi-select
+drags, drop animations and drags across windows. Shipped CSS, icons, text, a mandatory provider
+and HTML5 drag and drop as the move mechanism are out by design.
+
+## Known limits
+
+- **The draggable entry is larger than its target**: +4.3 KB min + gzip over the shared entry,
+  against a target of +2 KB. See [bundle size](/docs/guides/bundle-size#why-the-draggable-entry-is-the-largest).
+- **A drag never crosses documents.** A drag inside a Dockable popout stays in that window, and a
+  drag cannot carry an item from the main window into a popout.
+- **Auto-scroll uses the scroll range measured when the drag starts.** Content that grows during
+  the drag (a list that loads more) is not scrolled into until the next drag.
+- **An `onMouseDown` on a draggable does not run.** The press is claimed on `pointerdown`, which
+  suppresses the compatibility mouse events; use `onPointerDown`. `click` still fires.
+- **Firefox scroll anchoring.** In a scroll container, Firefox may take the dragged element as its
+  scroll anchor, and scroll the container back by as much when the core clears the element's
+  `translate` after a cancel. Set `overflow-anchor: none` on the container (the auto-scroll
+  example does).
+- **`DragOverlay`'s state functions run while idle**, with no operation: read `state.operation`
+  defensively.
+- **An arrow key pressed before a keyboard drag's first frame** counts from no target: in
+  `"targets"` mode it goes to the first droppable rather than the next one. People are slower
+  than a frame; scripted tests wait for `data-dnd-over`.
+- **Grid Layout integrations are local only** until Grid Layout is on npm: see
+  [with Grid Layout](/docs/guides/with-grid-layout).

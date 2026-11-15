@@ -1,0 +1,44 @@
+---
+title: Bundle size
+description: What each entry costs on a production build, how it is measured, why the draggable entry misses its target, and how to ship less.
+---
+
+Size is a feature: each capability is its own entry, and an app ships only what it imports.
+
+## The numbers
+
+`pnpm size` (after `pnpm build`) bundles what an app's production build ships for the entries it
+imports, with the core they pull: minified, gzipped, React left out, and the development checks
+dropped (`process.env.NODE_ENV` set to `"production"`, as an app's bundler does).
+
+| imported | min + gzip | over the shared entry | target |
+| --- | --- | --- | --- |
+| `@fragiola/dnd-react` | 3.5 KB | | ≤ 4 KB |
+| `@fragiola/dnd-react` + `/draggable` | 7.7 KB | 4.3 KB | ≤ 2 KB extra |
+| `@fragiola/dnd-react` + `/droppable` | 4.6 KB | 1.1 KB | ≤ 1.5 KB extra |
+| all three | 8.1 KB | 4.7 KB | |
+| only `Draggable` | 6.1 KB | | |
+| only `Droppable` | 2.9 KB | | |
+
+Measured on this repository's build (rolldown's minifier, then gzip); a consumer's bundler gets
+close to it. The report also lists each built file and chunk.
+
+## Why the draggable entry is the largest
+
+It misses its target (+4.3 KB against +2 KB). Most of it is behaviour every draggable needs and
+the core carries in the draggable capability: the pointer sensor (activation by distance or by a
+held touch, pointer capture, the press claim and the focus it gives back), the keyboard sensor
+(steps, and the targets mode in reading order), the drag operation (measurement, collision, the
+once-per-frame `translate` writer, the events) and the guards that keep a throwing callback from
+leaving the space stuck. A droppable only registers itself and reacts, so it is small.
+
+## Shipping less
+
+- **Import only the capabilities you use.** A page that only drops (files from another part of
+  the app) imports `/droppable`; one that only drags imports `/draggable`.
+- **Opt-in pieces stay out until imported**: `autoScroll`, `DragOverlay`, the collision
+  strategies other than the default, and the monitor.
+- **No namespace object**: there is no `Dnd.*` gathering every part, on purpose.
+
+A bundle test proves it: a fixture importing only `Draggable` fails the test when droppable code
+is in the output, and the same for each capability.

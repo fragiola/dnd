@@ -1,3 +1,120 @@
 {
-    "sections": []
+    "sections": [
+        {
+            "label": "Getting started",
+            "pages": [
+                {
+                    "label": "Installation",
+                    "path": "getting-started/installation"
+                },
+                {
+                    "label": "Quick start",
+                    "path": "getting-started/quick-start"
+                }
+            ]
+        },
+        {
+            "label": "Concepts",
+            "collapsible": true,
+            "defaultOpen": true,
+            "pages": [
+                {
+                    "label": "The drag space",
+                    "path": "concepts/no-provider-drag-space"
+                },
+                {
+                    "label": "Wrappers without HTML",
+                    "path": "concepts/wrappers-without-html"
+                },
+                {
+                    "label": "Capability entries",
+                    "path": "concepts/capability-entries"
+                },
+                {
+                    "label": "State attributes",
+                    "path": "concepts/state-attributes"
+                },
+                {
+                    "label": "Sensors and activation",
+                    "path": "concepts/sensors-and-activation"
+                },
+                {
+                    "label": "Collision strategies",
+                    "path": "concepts/collision"
+                },
+                {
+                    "label": "Keyboard and accessibility",
+                    "path": "concepts/keyboard-and-accessibility"
+                }
+            ]
+        },
+        {
+            "label": "Guides",
+            "collapsible": true,
+            "defaultOpen": true,
+            "pages": [
+                {
+                    "label": "With Dockable",
+                    "path": "guides/with-dockable"
+                },
+                {
+                    "label": "With Grid Layout",
+                    "path": "guides/with-grid-layout"
+                },
+                {
+                    "label": "Styling a drag",
+                    "path": "guides/styling"
+                },
+                {
+                    "label": "Bundle size",
+                    "path": "guides/bundle-size"
+                }
+            ]
+        },
+        {
+            "label": "API (@fragiola/dnd-react)",
+            "collapsible": true,
+            "defaultOpen": true,
+            "pages": [
+                {
+                    "label": "Draggable",
+                    "path": "api/draggable"
+                },
+                {
+                    "label": "DragHandle",
+                    "path": "api/drag-handle"
+                },
+                {
+                    "label": "Droppable",
+                    "path": "api/droppable"
+                },
+                {
+                    "label": "DragOverlay",
+                    "path": "api/drag-overlay"
+                },
+                {
+                    "label": "Hooks",
+                    "path": "api/hooks"
+                },
+                {
+                    "label": "Core",
+                    "path": "api/core"
+                }
+            ]
+        },
+        {
+            "label": "More",
+            "pages": [
+                {
+                    "label": "Limitations and roadmap",
+                    "path": "limitations"
+                },
+                {
+                    "label": "Found a problem?",
+                    "href": "https://github.com/fragiola/dnd/issues",
+                    "external": true
+                }
+            ]
+        }
+    ]
 }

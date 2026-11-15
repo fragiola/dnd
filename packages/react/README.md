@@ -9,7 +9,9 @@ icons, no rendered overlays of its own look and no text**: a wrapper renders no 
 it adds behaviour to the element it wraps, and you style it with `className`, `style` and the
 `data-dnd-*` attributes it exposes. Every visible word and accessible name comes from you.
 
-Documentation, guides and live examples: **<https://fragiola.com/dnd>**.
+Documentation, guides and live examples: **<https://fragiola.com/dnd>** (the API pages:
+[`Draggable`](https://fragiola.com/dnd/docs/api/draggable), [`Droppable`](https://fragiola.com/dnd/docs/api/droppable),
+[`DragOverlay`](https://fragiola.com/dnd/docs/api/drag-overlay), [hooks](https://fragiola.com/dnd/docs/api/hooks)).
 
 ## Install
 
@@ -203,6 +205,14 @@ messages from production builds (they are behind a literal `process.env.NODE_ENV
 build no longer folds it) and took the shared entry from 3.8 to 3.5 KB; the draggable path did not
 move measurably. Loading the keyboard's targets mode lazily (about 0.3 KB) would make a drag's
 first arrow keys depend on a chunk arriving, so it was left in.
+
+## Known limits
+
+An `onMouseDown` on a draggable does not run (the press is claimed on `pointerdown`; use
+`onPointerDown`), a drag never crosses documents, and auto-scroll uses the scroll range measured
+when the drag starts. In Firefox, set `overflow-anchor: none` on a scroll container whose
+draggables can be cancelled at its end. See
+[limitations](https://fragiola.com/dnd/docs/limitations).
 
 ## Stability
 

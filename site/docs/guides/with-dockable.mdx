@@ -1,0 +1,100 @@
+---
+title: With Dockable
+description: Drop a card on a Dockable tabset to open a tab through tab.add, drag inside panels that move, and write one rule that spans both libraries.
+---
+
+dnd and [Dockable](https://fragiola.com/dockable) compose without depending on each other: the
+packages never import a sibling, and the glue is a few lines of app code. Install Dockable beside
+dnd (`pnpm add @fragiola/dockable-react`).
+
+## A tabset as a drop target
+
+`Dockable.TabSet` forwards its props and ref, as every Fragiola primitive does, so a `Droppable`
+wraps it directly. Both libraries' attributes sit on the one element (`data-layout-path` and
+`data-dnd-*`), without colliding. The drop changes the layout through Dockable's own command, so
+it goes through Dockable's rules like any other change:
+
+```tsx title="layout.tsx"
+import { Droppable } from "@fragiola/dnd-react/droppable";
+import { Dockable, type TabsetNode } from "@fragiola/dockable-react";
+
+function TabSet({ node }: { node: TabsetNode<NoteTypes> }) {
+    return (
+        <Droppable
+            id={node.id}
+            accepts={["card"]}
+            onDrop={(event) =>
+                model.run("tab.add", {
+                    component: "note",
+                    label: String(event.operation.source.data),
+                    data: { text: "…" },
+                    to: node.id,
+                })
+            }
+        >
+            <Dockable.TabSet node={node} className="tabset data-dnd-over:outline">
+                {/* the strip and the content, as usual */}
+            </Dockable.TabSet>
+        </Droppable>
+    );
+}
+```
+
+## A rule across both libraries
+
+Dockable's rules live in Dockable: here a Dockable middleware refuses `tab.add` into a tabset
+that holds three tabs. A dnd drop middleware asks Dockable the same question with `model.can`,
+which runs Dockable's chain without committing anything. dnd asks it as a dry run on every hover,
+so a full tabset is marked `data-dnd-refused` while the card is over it, not after the drop:
+
+```tsx title="rules.tsx"
+import { useDragSpace } from "@fragiola/dnd-react";
+
+// Dockable's rule, in Dockable
+useEffect(
+    () =>
+        model.use((ctx, next) => {
+            if (ctx.command !== "tab.add") return next();
+            const target = ctx.get("node-by", { id: ctx.payload.to });
+            return target?.type === "tabset" && target.children.length >= 3
+                ? { ok: false, error: { code: "refused", message: "A tabset holds at most 3 tabs." } }
+                : next();
+        }),
+    [model],
+);
+
+// dnd asks Dockable before a card may drop on a tabset
+const space = useDragSpace();
+useEffect(
+    () =>
+        space?.use((ctx, next) => {
+            const tabset = String(ctx.payload.droppableId);
+            if (model.get("node-by", { id: tabset })?.type !== "tabset") return next();
+            return model.can("tab.add", newTab(String(ctx.source.data), tabset))
+                ? next()
+                : { ok: false, error: { code: "vetoed" } };
+        }),
+    [space, model],
+);
+```
+
+<Example id="dockable-new-tab" />
+
+## Draggables inside panels
+
+Dockable moves a panel's content when its tab moves to another tabset, or into a popout window,
+without remounting it. dnd measures at drag start and registers each element in its own
+document's drag space, so a draggable keeps working wherever its panel went, and inside a popout
+it meets that window's droppables (a drag never crosses windows).
+
+A panel clips its content, so a card dragged out of it would vanish at its edge: give the cards
+`translate={false}` and let a [`DragOverlay`](/docs/api/drag-overlay) carry a copy across panels.
+
+<Example id="dockable-panels" />
+
+## Two drags, side by side
+
+Dockable drags its own tabs and tabsets with native HTML5 drag and drop inside its root; dnd uses
+Pointer Events. They do not meet: a dnd drag never starts a Dockable drag, and a tab dragged by
+Dockable never reaches a `Droppable`. Their attributes are distinct (`data-dragging` on a
+Dockable tab, `data-dnd-dragging` on a dnd draggable).

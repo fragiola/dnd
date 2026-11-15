@@ -61,15 +61,25 @@ function withStandIn(real: Site): Site {
             },
         ]),
     );
-    const config = {
-        sections: [
-            ...real.config.sections,
-            {
-                label: "Stand-in",
-                pages: [{ label: "A stand-in page", path: STAND_IN_PAGE }],
-            },
-        ],
-    };
+    // the page is listed already once the site has it
+    const listed = real.config.sections.some((section) =>
+        section.pages.some(
+            (entry) => "path" in entry && entry.path === STAND_IN_PAGE,
+        ),
+    );
+    const config = listed
+        ? real.config
+        : {
+              sections: [
+                  ...real.config.sections,
+                  {
+                      label: "Stand-in",
+                      pages: [
+                          { label: "A stand-in page", path: STAND_IN_PAGE },
+                      ],
+                  },
+              ],
+          };
     const pages = new Map([...real.pages, [STAND_IN_PAGE, page("")]]);
     return { ...real, config, pages, manifests };
 }

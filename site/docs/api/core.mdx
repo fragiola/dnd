@@ -1,0 +1,122 @@
+---
+title: The core API
+description: What the shared entry and each capability entry export, the drag space's five verbs with their keys, drop middleware, auto-scroll and the overlay geometry.
+---
+
+The core, `@fragiola/dnd`, is framework-free with no runtime dependency. A React app does not
+install it: `@fragiola/dnd-react` re-exports it entry by entry, so every name here is imported
+from `@fragiola/dnd-react` (the shared entry) or `@fragiola/dnd-react/<capability>`. Use it
+directly only to build an adapter for another framework.
+
+## The shared entry
+
+| export | |
+| --- | --- |
+| `getDragSpace(document)` | the drag space of a document, created on first use |
+| `createDragSpace({ document })` | an isolated space: only registrations given it as `space` meet in it |
+| `subscribe(listener, options)` | listens to every drag of a document or a space; returns the unsubscribe |
+| `DEFAULT_SCOPE` | `"default"`: the scope of a registration that names none |
+| `pointerWithin`, `closestCenter`, `rectIntersection` | the [collision strategies](/docs/concepts/collision) |
+| `autoScroll(options?)` | an auto-scroll strategy for a draggable's `autoScroll` |
+| `overlayStyle(operation)` | the overlay's structural style for a drag: fixed, sized as the source, inert |
+| `grabOffset(operation)` | where the pointer grabbed the source, from its top-left corner |
+| types | `DragOperation`, `DragSource`, `DragTarget`, `DragRects`, `Point`, `Rect`, the events, `Activation`, `KeyboardOptions`, `CollisionStrategy`, `DraggableState`, `DroppableState`, `DropMiddleware`, `CommandResult`, `DragError`, … |
+
+`subscribe`'s second argument is `{ document, scope? }` or `{ space, scope? }`.
+
+## The capability entries
+
+```ts title="vanilla.ts"
+import { registerDraggable } from "@fragiola/dnd-react/draggable";
+import { registerDroppable } from "@fragiola/dnd-react/droppable";
+
+const zone = registerDroppable(list, { id: "done", accepts: ["task"], onDrop: (event) => move(event.operation.source.id) });
+const card = registerDraggable(item, { id: "t1", type: "task" });
+card.subscribe(() => render(card.getState())); // { dragging, disabled }
+card.unregister();
+zone.unregister();
+```
+
+`registerDraggable(element, options)` and `registerDroppable(element, options)` take the options
+of [`Draggable`](/docs/api/draggable#props) and [`Droppable`](/docs/api/droppable#props) (the
+draggable's also `handle`, the element a drag starts from) and return a registration:
+
+| member | |
+| --- | --- |
+| `update(options)` | replaces all the options (one left out goes back to its default) |
+| `unregister()` | removes the registration and its listeners; a second call does nothing |
+| `getState()` | the state now: the same object until a field changes |
+| `subscribe(listener)` | calls `listener` after each state change; returns the unsubscribe |
+
+That is an external store, ready for `useSyncExternalStore` or any framework's reactivity.
+
+## The five verbs
+
+The drag space is the library's engine, and it exposes exactly `run`, `can`, `check`, `get`,
+`is`, `use`, `subscribe` and `adapter`. A new read or question is a new key, never a new method.
+`run` and `check` return a `CommandResult` and never throw.
+
+| verb | key | payload | result |
+| --- | --- | --- | --- |
+| `get` | `"document"` | | the document its drags run in (where an overlay portals) |
+| `get` | `"operation"` | | the drag in progress, or `undefined` |
+| `get` | `"draggable-ids"` | | the ids of the draggables registered in it |
+| `get` | `"droppable-ids"` | | the ids of the droppables registered in it |
+| `get` | `"draggable-state-by"` | `{ draggableId }` | its state, or `undefined` |
+| `get` | `"droppable-state-by"` | `{ droppableId }` | its state, or `undefined` |
+| `is` | `"dragging"` | | a drag runs in the space |
+| `is` | `"draggable-dragging"` | `{ draggableId }` | it is the one dragged |
+| `is` | `"droppable-over"` | `{ droppableId }` | an accepted source hovers it |
+| `run` | `"cancel"` | | cancels the drag in progress: `{ ok: true, value: {} }`, or `not_found` |
+| `check` | `"drop"` | `{ draggableId, droppableId }` | whether it may drop there (its scope, `disabled`, `accepts`, then the middleware, as a dry run), with the reason when not |
+| `can` | `"drop"` | `{ draggableId, droppableId }` | `check(...).ok` |
+
+`subscribe(listener, { scope? })` listens to the space's events. `adapter.register(entry)` is
+for adapters only: `registerDraggable` and `registerDroppable` use it.
+
+A `DragError` has a `code`: `not_found` (an unknown id, no drag), `refused` (the droppable's
+scope, `accepts` or `disabled`), `vetoed` (a middleware said no) or `middleware_error` (one
+threw), and an optional `message`.
+
+## Drop middleware
+
+```ts title="rule.ts"
+const remove = space.use((ctx, next) =>
+    ctx.payload.droppableId === "archive" && !canArchive(ctx.source)
+        ? { ok: false, error: { code: "vetoed", message: "Archive is read-only." } }
+        : next(),
+);
+```
+
+After a droppable's `accepts`, a drop goes through the space's middleware: synchronous, the first
+added outermost. Each receives `ctx` (`command: "drop"`, `payload: { draggableId, droppableId }`,
+`source`, `target` and `dryRun`) and returns `next()` to let it through, or an error to forbid it.
+It runs as a dry run (`ctx.dryRun`, no side effects) when the hovered droppable changes and in
+`can`/`check("drop")`, and for real on the release, before `onDrop` and `onDragEnd`. A veto marks
+the hover refused, and on the release drops nowhere: no `onDrop`, and `onDragEnd` sees no
+`operation.target`.
+
+## Auto-scroll
+
+```ts title="scroll.ts"
+const scroll = autoScroll({ threshold: 56, speed: 14 });
+// <Draggable id="a" autoScroll={scroll}>
+```
+
+| option | default | |
+| --- | --- | --- |
+| `threshold` | `40` | how deep the edge zones are, in px (at most half the container) |
+| `speed` | `15` | the fastest scroll, in px per frame, reached at the very edge |
+
+While a draggable with `autoScroll` is dragged near an edge of a scroll container that holds the
+pointer, the nearest such container that can still scroll that way scrolls, a frame at a time,
+faster the deeper into the edge zone (the page's scroller last). Each container's scroll range is
+measured when the drag starts, so the dragged element's own `translate` never grows it.
+
+<Example id="auto-scroll" />
+
+## Errors in app code
+
+App code that throws (a callback, a listener, an `accepts` predicate) never leaves the space
+stuck: the drag is cancelled cleanly and the error is rethrown from a timer of the element's
+window.

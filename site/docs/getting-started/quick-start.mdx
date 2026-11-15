@@ -1,0 +1,94 @@
+---
+title: Quick start
+description: Make a card draggable and a box droppable, in unrelated parts of the tree, move the card in your own state, and style the drag.
+---
+
+## A draggable and a droppable
+
+Wrap the element you already render. `Draggable` and `Droppable` render nothing of their own: they
+add their behaviour, attributes and ref to the one element they wrap.
+
+```tsx title="hello.tsx"
+import { Draggable } from "@fragiola/dnd-react/draggable";
+import { Droppable } from "@fragiola/dnd-react/droppable";
+import { useState } from "react";
+
+export function Hello() {
+    const [inBox, setInBox] = useState(false);
+    const card = (
+        <Draggable id="card" type="card">
+            <article aria-label="Card" className="card">
+                Drag me
+            </article>
+        </Draggable>
+    );
+    return (
+        <>
+            <Tray>{inBox ? null : card}</Tray>
+            <Box>
+                <Droppable id="box" accepts={["card"]} onDrop={() => setInBox(true)}>
+                    <section aria-label="Box" className="box">
+                        {inBox ? card : "Drop here"}
+                    </section>
+                </Droppable>
+            </Box>
+        </>
+    );
+}
+```
+
+There is no provider: the tray and the box can be any components, anywhere. The live version:
+
+<Example id="hello-dnd" />
+
+## Move it in your state
+
+The drop says what was dropped where (`event.operation.source.id`, `event.operation.target.id`);
+moving the data is the app's. While the card follows the pointer, the core moves it with the CSS
+`translate` property, once per animation frame, without rendering React. After your `onDrop` and
+`onDragEnd` run, it clears `translate`, so the card goes straight to where your state put it.
+
+```tsx title="board.tsx"
+<Droppable
+    id={column.id}
+    onDrop={(event) => setBoard((board) => moveTask(board, String(event.operation.source.id), column.id))}
+>
+    <section aria-label={column.title}>{/* … */}</section>
+</Droppable>
+```
+
+## Style the drag
+
+The state is on your elements as attributes, present or absent:
+
+```css title="board.css"
+.card[data-dnd-dragging] {
+    box-shadow: 0 12px 28px rgb(0 0 0 / 0.16);
+    z-index: 10;
+}
+.box[data-dnd-active] {
+    outline: 2px dashed;
+}
+.box[data-dnd-over] {
+    background: rgb(59 130 246 / 0.12);
+}
+.box[data-dnd-refused] {
+    outline: 2px dashed red;
+}
+```
+
+Or with Tailwind: `data-dnd-over:bg-blue-50`. See [styling](/docs/guides/styling).
+
+## The keyboard comes with it
+
+Every draggable is a tab stop. Space or Enter grabs it, the arrows move it, Space or Enter drops it
+and Escape cancels. The words a screen reader hears are yours: see
+[keyboard and accessibility](/docs/concepts/keyboard-and-accessibility).
+
+## Next
+
+<Cards>
+<Card title="Drag handles" href="/docs/api/drag-handle" description="Only the grip starts a drag." />
+<Card title="Typed sources" href="/docs/api/droppable" description="accepts, refused hovers and rules." />
+<Card title="The overlay" href="/docs/api/drag-overlay" description="Drags out of clipped containers." />
+</Cards>

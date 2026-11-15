@@ -1,0 +1,63 @@
+---
+title: Droppable
+description: The wrapper that makes its single child a drop target, with no provider. Every prop, what accepts takes, its state, attributes and events.
+---
+
+`Droppable` makes the one element it wraps a drop target in its document's drag space. It renders
+no element of its own and adds `data-dnd-*` attributes saying what a drag in progress would do
+there.
+
+```tsx title="folder.tsx"
+import { Droppable } from "@fragiola/dnd-react/droppable";
+
+<Droppable id="images" accepts={["image"]} onDrop={(event) => moveFile(event.operation.source.id, "images")}>
+    <section aria-label="Images">{files}</section>
+</Droppable>;
+```
+
+## Props
+
+| prop | type | default | |
+| --- | --- | --- | --- |
+| `id` | `string \| number` | required | unique within its scope; reported as `operation.target.id` |
+| `data` | `unknown` | | anything the app wants back (`operation.target.data`) |
+| `scope` | `string` | the default scope | only draggables of the same scope meet it |
+| `space` | `DragSpace` | its document's | an explicit space from `createDragSpace` |
+| `accepts` | `string[] \| (source: DragSource) => boolean` | everything | the draggable `type`s it takes, or a predicate of the source |
+| `disabled` | `boolean` | `false` | never a target |
+| `onDragEnter` | `(event: DroppableEvent<"drag-enter">) => void` | | a drag entered it |
+| `onDragOver` | `(event: DroppableEvent<"drag-over">) => void` | | a drag moved over it, once per frame |
+| `onDragLeave` | `(event: DroppableEvent<"drag-leave">) => void` | | a drag left it |
+| `onDrop` | `(event: DroppableEvent<"drop">) => void` | | an accepted source was released over it, before the draggable's `onDragEnd` |
+| `className`, `style`, `render`, `ref`, `children` | | | as on [`Draggable`](/docs/api/draggable#props), with the droppable's state |
+
+Any other prop is forwarded to the element.
+
+## Accepting and refusing
+
+`accepts` is a list of draggable `type`s (a draggable with no `type` matches no list) or a
+predicate of the source `{ id, type, data }`. A predicate that throws refuses. Then the space's
+drop middleware runs (`space.use`), as a dry run on each hover and for real on the release: a
+veto refuses too. A refused source hovering the droppable marks it `data-dnd-refused` and never
+reports `onDrop`. The hover callbacks still run for a refused source; `event.operation.target` is
+undefined then.
+
+<Example id="accepts-types" />
+
+## State
+
+`{ over: boolean; active: boolean; refused: boolean; disabled: boolean }`, given to `className`,
+`style` and `render`.
+
+## Attributes
+
+| attribute | when |
+| --- | --- |
+| `data-dnd-part="droppable"` | always |
+| `data-dnd-id` | always: the `id`, as a string |
+| `data-dnd-active` | a drag runs that it would accept |
+| `data-dnd-over` | an accepted source hovers it |
+| `data-dnd-refused` | a refused (or vetoed) source hovers it |
+| `data-dnd-disabled`, `aria-disabled="true"` | `disabled` |
+
+A droppable re-renders on enter, leave and drop, never while a drag moves inside it.

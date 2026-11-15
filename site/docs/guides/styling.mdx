@@ -1,0 +1,108 @@
+---
+title: Styling a drag
+description: Style the lift, the drop zones and the overlay from outside, with the data-dnd attributes or state functions, and make a cancelled drag glide home.
+---
+
+The packages ship no CSS. Everything a drag looks like is yours, read from the
+[state attributes](/docs/concepts/state-attributes) or from the wrappers' state functions. The
+examples use Tailwind and Fragiola UI's palettes; plain CSS works the same.
+
+## The attributes
+
+```css title="board.css"
+.card[data-dnd-dragging] {
+    z-index: 10;
+    cursor: grabbing;
+    box-shadow: 0 12px 28px rgb(0 0 0 / 0.16);
+}
+.column[data-dnd-active] {
+    outline: 2px dashed var(--accent);
+}
+.column[data-dnd-over] {
+    background: var(--accent-soft);
+}
+.column[data-dnd-refused] {
+    opacity: 0.6;
+}
+[data-dnd-part~="handle"] {
+    cursor: grab;
+}
+```
+
+With Tailwind, the attributes are variants: `data-dnd-dragging:shadow-lg`,
+`data-dnd-over:bg-blue-50`, and `group-data-dnd-refused:inline-flex` for a child that shows only
+while its droppable refuses.
+
+## State functions
+
+`className` and `style` on a wrapper take a function of its state:
+
+```tsx title="card.tsx"
+<Draggable id={task.id} className={(state) => (state.dragging ? "card card-lifted" : "card")}>
+    <article aria-label={task.title}>{task.title}</article>
+</Draggable>
+```
+
+## A lift that composes with the drag
+
+While an element follows the pointer, the core writes its CSS `translate` property. The
+individual transform properties compose, so a lift written with `scale` and `rotate` (or a
+`transform` the element already had) never fights the drag:
+
+```css title="lift.css"
+.card[data-dnd-dragging] {
+    scale: 1.03;
+    rotate: 1.5deg;
+}
+```
+
+Never put a transition on `translate` **while** dragging: the element would lag behind the
+pointer.
+
+## The translate transition: gliding home
+
+When a drag is cancelled (Escape, a release outside any droppable), the core clears `translate`
+and the element jumps back. A transition on `translate` that applies only at rest makes it glide
+back instead: the attribute and the inline style change in the same frame, and a CSS transition
+takes the after-change style, so the transition runs.
+
+```css title="glide.css"
+.card {
+    transition: translate 160ms ease-out, scale 160ms, rotate 160ms;
+}
+.card[data-dnd-dragging] {
+    transition: scale 160ms, rotate 160ms; /* no translate while it follows the pointer */
+}
+```
+
+After a successful drop that moves the element in your state, React renders it in its new place
+(a new element, or a moved one): it does not glide from the release point.
+
+<Example id="styling-showcase" />
+
+## The overlay's look
+
+`DragOverlay` renders a fixed box the size of the dragged element; what is inside it is yours,
+and so is its stacking (`z-index`), its shadow and any tilt. The source can look like a placeholder
+of itself meanwhile:
+
+```tsx title="overlay.tsx"
+<Draggable id={tag} translate={false}>
+    <li className="tag data-dnd-dragging:opacity-50 data-dnd-dragging:border-dashed">{tag}</li>
+</Draggable>
+
+<DragOverlay className="z-50">
+    {(operation) => <span className="tag tag-lifted">{String(operation.source.id)}</span>}
+</DragOverlay>
+```
+
+The overlay is portalled into the document's `body`: a theme or a palette that lives on a
+wrapper inside the app does not reach it. Put theme variables where the body inherits them
+(`:root`, `body`), as the examples do.
+
+## Right to left
+
+Nothing to configure: the pointer drags where it goes, and the keyboard's `"targets"` mode follows
+the reading order. Use logical properties (`margin-inline-start`, `ps-*`) in your styles.
+
+<Example id="rtl" />

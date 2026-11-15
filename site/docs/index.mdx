@@ -9,10 +9,13 @@ layout: landing
     title="Drag and drop that wraps what you already render."
     description="Wrap any element in a Draggable or a Droppable and it drags and drops: no provider, no HTML of its own, no CSS. Mouse, touch, pen and the keyboard go through one path, and each capability is its own import."
     actions={[
-        { label: "Browse the examples", href: "/examples", variant: "primary" },
-        { label: "GitHub", href: "https://github.com/fragiola/dnd", variant: "ghost" },
+        { label: "Get started", href: "/docs/getting-started/quick-start", variant: "primary", icon: "arrow" },
+        { label: "Browse {examples} examples", href: "/examples", variant: "secondary" },
+        { label: "GitHub", href: "https://github.com/fragiola/dnd", variant: "ghost", icon: "external" },
     ]}
 />
+
+<Example id="styling-showcase" variant="showcase" label="The same markup, five themes:" />
 
 <Features columns={4}>
 <Feature title="No HTML of its own">
@@ -31,6 +34,33 @@ Mouse, touch and pen through Pointer Events, and a keyboard path that grabs, mov
 cancels with the same events.
 </Feature>
 </Features>
+
+<Section title="Two wrappers, anywhere in the tree" eyebrow="Quick start">
+
+```tsx title="board.tsx"
+import { Draggable } from "@fragiola/dnd-react/draggable";
+import { Droppable } from "@fragiola/dnd-react/droppable";
+
+<Draggable id="card" type="task">
+    <article className="card">Drag me</article>
+</Draggable>;
+
+<Droppable id="done" accepts={["task"]} onDrop={(event) => move(event.operation.source.id)}>
+    <section className="column">Done</section>
+</Droppable>;
+```
+
+Neither wrapper renders an element, and nothing wraps them both. The state arrives on your elements
+as `data-dnd-*` attributes.
+</Section>
+
+<Section title="Made for the Fragiola family">
+<Cards>
+<Card title="With Dockable" href="/docs/guides/with-dockable" description="Drop a card on a tabset to open a tab, drag inside panels and popouts." />
+<Card title="With Grid Layout" href="/docs/guides/with-grid-layout" description="Drag inside a grid item without moving it, add items with item.add." />
+<Card title="Bundle size" href="/docs/guides/bundle-size" description="What each entry costs, measured on a production build." />
+</Cards>
+</Section>
 
 <Section title="What it never ships">
 <Pills strike items={["CSS", "Icons", "Text", "A provider", "HTML5 drag and drop"]} />

@@ -1,0 +1,43 @@
+---
+title: Installation
+description: Install the one React package, check its peer dependencies, and see why there is no stylesheet or provider to set up.
+---
+
+## Install the package
+
+```sh title="Terminal"
+pnpm add @fragiola/dnd-react
+```
+
+This one package is all a React app installs. It depends on the framework-free core,
+`@fragiola/dnd`, at the exact same version and re-exports it entry by entry, so every import comes
+from `@fragiola/dnd-react` or one of its capability entries:
+
+```ts title="imports.ts"
+import { DragOverlay, autoScroll, useDragMonitor } from "@fragiola/dnd-react";
+import { DragHandle, Draggable } from "@fragiola/dnd-react/draggable";
+import { Droppable } from "@fragiola/dnd-react/droppable";
+```
+
+See [capability entries](/docs/concepts/capability-entries) for what each entry holds.
+
+## Peer dependencies
+
+The React package needs React 19 (`react` and `react-dom`, `^19`). It is ESM only. The core has
+no runtime dependency at all: no drag library, and no HTML5 drag and drop.
+
+## Nothing else to set up
+
+- **No provider.** There is no context to put at the root of the app: draggables and droppables
+  find each other through a drag space per document. See
+  [the drag space](/docs/concepts/no-provider-drag-space).
+- **No stylesheet.** The wrappers set only the inline style a drag needs (a `translate` while the
+  element follows the pointer, `touch-action: none` on a handle). Everything else is yours, read
+  from the [state attributes](/docs/concepts/state-attributes).
+- **No text.** Accessible names and announcements are the app's. See
+  [keyboard and accessibility](/docs/concepts/keyboard-and-accessibility).
+
+<Callout type="info" title="Server rendering">
+Nothing touches the DOM while rendering, and no drag space exists on the server: a registration
+happens when the element mounts, in the browser.
+</Callout>

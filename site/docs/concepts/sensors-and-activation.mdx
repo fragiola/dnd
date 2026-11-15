@@ -1,0 +1,88 @@
+---
+title: Sensors and activation
+description: One Pointer Events path for mouse, touch and pen, when a press becomes a drag, what cancels it, which elements never start one, and how presses are claimed.
+---
+
+A drag starts from the draggable's **activator**: its handle when it has one, the element itself
+otherwise. Two sensors listen there, never on a global: the pointer sensor and the
+[keyboard sensor](/docs/concepts/keyboard-and-accessibility).
+
+## One path for mouse, touch and pen
+
+The pointer sensor uses Pointer Events with `setPointerCapture`. There is no HTML5 drag and drop
+and no drag library. A press is a click until it passes the activation, then a drag that follows
+the pointer until it is released, cancelled or loses its capture.
+
+## Activation
+
+`activation` is per draggable:
+
+| option | input | default | meaning |
+| --- | --- | --- | --- |
+| `distance` | mouse, pen | `3` | px the pointer moves before the drag starts; `0` starts on press |
+| `delay` | touch | `200` | ms a finger holds still before the drag starts |
+| `tolerance` | touch | `5` | px a finger may move during the delay; more, and it scrolls the page instead |
+
+```tsx title="touch.tsx"
+<Draggable id={item} activation={{ delay: 250, tolerance: 8 }}>
+    <li>{item}</li>
+</Draggable>
+```
+
+A press under the activation is a click: `onClick` works as usual. The click that a drag's release
+would produce is swallowed, so releasing a drag over a button does not press it.
+
+<Example id="touch" />
+
+## What cancels a drag
+
+Escape, `pointercancel`, a lost pointer capture, a release where no `pointerup` arrives, and
+`space.run("cancel")`. A cancelled drag reports `onDragCancel` and never `onDrop`; the element goes
+back where it was (its `translate` is cleared).
+
+## What never starts a drag
+
+Native controls inside the activator: `input`, `textarea`, `select`, `button` (unless the button
+is the handle itself), and editable content (`[contenteditable]`). Any subtree marked
+`data-dnd-no-drag` opts out too, for text the user selects or a control of another library.
+
+```tsx title="card.tsx"
+<Draggable id="release">
+    <article>
+        <input aria-label="Title" />
+        <button type="button">Upvote</button>
+        <p data-dnd-no-drag="">Selectable notes</p>
+    </article>
+</Draggable>
+```
+
+<Example id="no-drag-controls" />
+
+A [`DragHandle`](/docs/api/drag-handle) makes the handle the only place a drag starts.
+
+## The press claim, and the focus it gives back
+
+A press that may become a drag is **claimed** on `pointerdown` with `preventDefault()`, not at
+activation. That is how nested gestures compose: an outer library deciding on the same
+`pointerdown` whether to start its own gesture sees `defaultPrevented` and stays still (Grid
+Layout does, so a card inside a grid item drags the card, not the item). In turn, dnd ignores a
+press another library already claimed.
+
+Cancelling `pointerdown` has side effects, measured in Chromium and Firefox:
+
+- **The compatibility mouse events are suppressed**: `mousedown` and `mouseup` do not fire for a
+  claimed press. An `onMouseDown` on a draggable (or inside its activator, outside a control) will
+  not run; use `onPointerDown`, which does. `click` still fires.
+- **The focus a press gives is suppressed.** The sensor gives it back itself: to the press's
+  closest focusable element inside the activator, as the browser would have.
+- **Text selection** that a mouse press would start is prevented while the press lasts, on
+  purpose.
+
+Native controls and `data-dnd-no-drag` subtrees are never claimed, so they keep the browser's own
+press, focus and selection.
+
+## Touch scrolling
+
+A touch that moves before its delay scrolls the page, so a list of draggables stays scrollable.
+Once a touch drag runs, the page does not scroll under it. A handle carries
+`touch-action: none`, so a touch on a handle never scrolls.

@@ -1,0 +1,64 @@
+---
+title: State attributes and inline style
+description: Every state a wrapper has is a data-dnd attribute on your element, present or absent, and the only inline style it writes is structural.
+---
+
+A wrapper exposes its state on the element it wraps, as `data-dnd-*` attributes and ARIA. A
+boolean attribute is present (empty) or absent, never `"false"`. The names are namespaced, so
+wrapping another primitive never collides with its own attributes (Dockable's `data-dragging`,
+Grid Layout's `data-dragging`).
+
+## Parts and ids
+
+Every element a wrapper touches carries `data-dnd-part`: `draggable`, `handle`, `droppable` or
+`overlay`. A draggable and a droppable also carry `data-dnd-id`, the `id` they were given (as a
+string). Stacked wrappers list their parts (`data-dnd-part="draggable droppable"`; select with
+`[data-dnd-part~="droppable"]`). Tests and tooling select by them, never by class names.
+
+## States
+
+| attribute | on | when |
+| --- | --- | --- |
+| `data-dnd-dragging` | draggable, its handle | it is the source of the drag in progress |
+| `data-dnd-disabled` | draggable, its handle, droppable | `disabled` is set |
+| `data-dnd-handle` | handle | always: it is a drag handle |
+| `data-dnd-active` | droppable | a drag runs that this droppable would accept (its scope, its `accepts`) |
+| `data-dnd-over` | droppable | an accepted source hovers it, and no drop middleware vetoes it |
+| `data-dnd-refused` | droppable | a source hovers it that its `accepts`, or a drop middleware, refuses |
+| `aria-disabled="true"` | draggable, its handle, droppable | `disabled` is set |
+| `aria-describedby` | draggable, handle | only when the app passes `describedBy` |
+
+A droppable is never both `over` and `refused`. A refused hover never reports `onDrop`.
+
+## The same state in functions
+
+`className` and `style` take a value or a function of the state, and so does `render`:
+
+```tsx title="column.tsx"
+<Droppable id="done" className={(state) => (state.refused ? "column column-refused" : "column")}>
+    <section aria-label="Done" />
+</Droppable>
+```
+
+| part | state |
+| --- | --- |
+| `Draggable`, `DragHandle` | `{ dragging, disabled }` |
+| `Droppable` | `{ over, active, refused, disabled }` |
+| `DragOverlay` | `{ operation }`: the drag it shows |
+
+## Inline style is structural only
+
+The packages ship no CSS. The only inline style they write:
+
+| style | on | why |
+| --- | --- | --- |
+| `translate` | the dragged element, during a drag | it follows the pointer; the CSS `translate` property, never `transform`, so it composes with a host that owns `transform` |
+| `touch-action: none` | a drag handle | a touch on the handle drags, never scrolls |
+| `position: fixed`, `left`, `top`, `width`, `height`, `box-sizing`, `pointer-events: none` | `DragOverlay`'s box | it sits where the dragged box is, inert to the pointer |
+
+`translate` is written once per animation frame at most, and cleared after your `onDrop` and
+`onDragEnd` run, back to the inline value the element had. A draggable with `translate={false}`
+is never moved. Everything else, the look of a dragged item, the placeholder, the cursor, the
+z-index and the transitions, is yours.
+
+<Example id="styling-showcase" />

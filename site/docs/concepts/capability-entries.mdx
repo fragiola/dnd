@@ -1,0 +1,51 @@
+---
+title: Capability entries
+description: Each capability is its own import, so an app's bundle carries only what it uses. What each entry holds, and what it costs on a production build.
+---
+
+dnd is split by capability, not by layer. Each capability is its own entry, in the React package
+and in the core, and a capability never imports another one: it imports only the shared core.
+
+```text title="entries"
+@fragiola/dnd-react               shared: drag space, collision strategies, events, types,
+                                  DragOverlay, useDragMonitor, useDragSpace, autoScroll
+    ├── /draggable                Draggable, DragHandle, useDraggable
+    ├── /droppable                Droppable, useDroppable
+    ├── /sortable                 (next)
+    └── /swappable                (next)
+```
+
+Each React entry re-exports the core entry of the same name (`export *`), so the core's
+`registerDraggable` is importable from `@fragiola/dnd-react/draggable` too. Collision strategies
+and `autoScroll` are separate exports of the shared entry, so an app that does not import one does
+not ship it.
+
+## What an app ships
+
+`pnpm size` builds what an app's production build ships for the entries it imports, with the core
+they pull, minified and gzipped, with React left out and the development checks dropped:
+
+| imported | min + gzip | target |
+| --- | --- | --- |
+| `@fragiola/dnd-react` | 3.5 KB | ≤ 4 KB |
+| `@fragiola/dnd-react` + `/draggable` | 7.7 KB (+4.3 KB) | ≤ 2 KB extra |
+| `@fragiola/dnd-react` + `/droppable` | 4.6 KB (+1.1 KB) | ≤ 1.5 KB extra |
+| all three | 8.1 KB | |
+| only `Draggable` | 6.1 KB | |
+| only `Droppable` | 2.9 KB | |
+
+The draggable entry misses its target: it carries the pointer and keyboard sensors, the drag
+operation and the `translate` writer for every draggable. See [bundle size](/docs/guides/bundle-size)
+for what is in each number and how it is measured.
+
+## Proved by a test
+
+A bundle test builds a fixture that imports only `Draggable` and fails when droppable code is in
+the output, and the same for each capability. A guard test fails when a capability imports
+another.
+
+## No namespace object
+
+There is no `Dnd.*` namespace on purpose: one object holding every part would put every
+capability in every bundle. This deviates from the Fragiola "one namespace" rule; see
+[wrappers without HTML](/docs/concepts/wrappers-without-html#two-deliberate-exceptions-to-the-fragiola-rules).
