@@ -17,7 +17,10 @@ import { useDragSpace } from "./useDragSpace";
 import type { WrapperProps } from "./utils/useRender";
 import { useWrap } from "./utils/useWrap";
 
-/** The overlay's state: the drag it shows. */
+/**
+ * The overlay's state: the drag it shows. The overlay renders nothing while idle, so its
+ * `className`, `style` and `render` functions are only called during a drag, with an operation.
+ */
 export interface DragOverlayState {
     readonly operation: DragOperation;
 }
@@ -44,7 +47,7 @@ const FALLBACK = <div />;
 interface OverlayProps {
     readonly ref: React.RefCallback<HTMLElement>;
     readonly "data-dnd-part": "overlay";
-    readonly style: React.CSSProperties | undefined;
+    readonly style: React.CSSProperties;
 }
 
 /** Writes the overlay's position for `operation`, outside React. */
@@ -109,17 +112,39 @@ export function DragOverlay(props: DragOverlayProps): React.ReactNode {
     const ownRef = React.useCallback((node: HTMLElement | null) => {
         element.current = node;
     }, []);
+    if (!space || !operation || !shown) return null;
+    // the content renders only while a drag runs: its `className`/`style`/`render` functions and
+    // its children function are never called while idle, so `state.operation` is always there
+    return createPortal(
+        <OverlayContent
+            operation={shown}
+            ownRef={ownRef}
+            wrapper={{ children, render, className, style, ref }}
+        />,
+        space.get("document").body,
+    );
+}
+
+/** The overlay's element, for the drag in progress. */
+function OverlayContent({
+    operation,
+    ownRef,
+    wrapper,
+}: {
+    readonly operation: DragOperation;
+    readonly ownRef: React.RefCallback<HTMLElement>;
+    readonly wrapper: Omit<DragOverlayProps, "scope" | "space" | "document">;
+}): React.ReactNode {
+    const { children, render, className, style, ref } = wrapper;
     const overlayProps: OverlayProps = {
         ref: ownRef,
         "data-dnd-part": "overlay",
-        style: shown ? overlayStyle(shown) : undefined,
+        style: overlayStyle(operation),
     };
-    const content = useWrap(
+    return useWrap(
         {
             children:
-                typeof children === "function" && shown
-                    ? children(shown)
-                    : (children as React.ReactNode),
+                typeof children === "function" ? children(operation) : children,
             render,
             className,
             style,
@@ -127,12 +152,10 @@ export function DragOverlay(props: DragOverlayProps): React.ReactNode {
         },
         {
             part: "DragOverlay",
-            state: { operation: shown as DragOperation },
+            state: { operation },
             props: overlayProps,
             fallback: FALLBACK,
             checkRef: false,
         },
     );
-    if (!space || !operation || !shown) return null;
-    return createPortal(content, space.get("document").body);
 }

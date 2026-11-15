@@ -102,4 +102,50 @@ describe("DragOverlay", () => {
         expect(overlay?.textContent).toBe("Ghost");
         act(() => press?.release(40, 30));
     });
+
+    it("calls its className and style functions only during a drag, always with an operation", () => {
+        const seen: unknown[] = [];
+        const { rerender } = render(
+            <Draggable id="card">
+                <div data-testid="card" />
+            </Draggable>,
+        );
+        const page = () => (
+            <>
+                <Draggable id="card">
+                    <div data-testid="card" />
+                </Draggable>
+                <DragOverlay
+                    className={(state) => {
+                        seen.push(state.operation);
+                        return `ghost-${String(state.operation.source.id)}`;
+                    }}
+                    style={(state) => {
+                        seen.push(state.operation);
+                        return {
+                            opacity: state.operation.delta.x > 0 ? 0.5 : 1,
+                        };
+                    }}
+                >
+                    Ghost
+                </DragOverlay>
+            </>
+        );
+        rerender(page());
+        rerender(page());
+        expect(seen).toEqual([]);
+        placeAll(BOXES);
+        let press: ReturnType<typeof pointer> | undefined;
+        act(() => {
+            press = pointer(screen.getByTestId("card"), 20, 30);
+            press.move(40, 30);
+        });
+        expect(
+            document.querySelector('[data-dnd-part="overlay"]')?.className,
+        ).toBe("ghost-card");
+        act(() => press?.release(40, 30));
+        rerender(page());
+        expect(seen.length).toBeGreaterThan(0);
+        expect(seen.every((operation) => operation !== undefined)).toBe(true);
+    });
 });

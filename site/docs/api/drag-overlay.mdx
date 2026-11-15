@@ -46,10 +46,9 @@ Its state is `{ operation }`, the drag it shows. Its box carries `data-dnd-part=
 structural inline style: `position: fixed`, `left`, `top`, `width` and `height` of the dragged box,
 `box-sizing: border-box` and `pointer-events: none`.
 
-<Callout type="warn" title="State functions while idle">
-`className` and `style` functions are also called while no drag runs, with no operation: read
-`state.operation` defensively, or use a plain class.
-</Callout>
+The overlay renders nothing while no drag runs, so its `className`, `style` and `render`
+functions (and a children function) are only called during a drag: `state.operation` is always
+there.
 
 ## Rendering
 
