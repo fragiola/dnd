@@ -15,6 +15,9 @@ export const TASKS: readonly Task[] = [
     { id: "guide", title: "Write the setup guide", tag: "docs" },
     { id: "avatar", title: "Crop avatars to a circle", tag: "feature" },
     { id: "typo", title: "Typo on the pricing page", tag: "bug" },
+    { id: "search", title: "Search the archive", tag: "feature" },
+    { id: "api", title: "Document the API errors", tag: "docs" },
+    { id: "flaky", title: "Fix the flaky upload test", tag: "bug" },
 ];
 
 /** A task by its id (the drag events carry ids, the app keeps the rest). */

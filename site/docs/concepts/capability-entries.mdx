@@ -11,12 +11,17 @@ and in the core, and a capability never imports another one: it imports only the
                                   DragOverlay, useDragMonitor, useDragSpace, autoScroll
     ├── /draggable                Draggable, DragHandle, useDraggable
     ├── /droppable                Droppable, useDroppable
-    ├── /sortable                 (next)
-    └── /swappable                (next)
+    ├── /sortable                 Sortable, SortableGroup, DragHandle, useSortable,
+    │                             useSortableGroup, verticalList, horizontalList, grid,
+    │                             arrayMove, moveBetween
+    └── /swappable                Swappable, DragHandle, useSwappable, swapItems, swapBetween
 ```
 
 Each React entry re-exports the core entry of the same name (`export *`), so the core's
-`registerDraggable` is importable from `@fragiola/dnd-react/draggable` too. Collision strategies
+`registerDraggable` is importable from `@fragiola/dnd-react/draggable` too. `DragHandle` is a
+shared part, re-exported by each drag source's entry (`/draggable`, `/sortable`, `/swappable`).
+What a drag source needs (the pointer and keyboard sensors, the operation, the writer) lives in
+the shared core, so sortable and swappable never import draggable. Collision strategies
 and `autoScroll` are separate exports of the shared entry, so an app that does not import one does
 not ship it.
 
@@ -25,23 +30,31 @@ not ship it.
 `pnpm size` builds what an app's production build ships for the entries it imports, with the core
 they pull, minified and gzipped, with React left out and the development checks dropped:
 
-| imported | min + gzip | target |
-| --- | --- | --- |
-| `@fragiola/dnd-react` | 3.6 KB | ≤ 4 KB |
-| `@fragiola/dnd-react` + `/draggable` | 8.0 KB (+4.3 KB) | ≤ 2 KB extra |
-| `@fragiola/dnd-react` + `/droppable` | 4.8 KB (+1.1 KB) | ≤ 1.5 KB extra |
-| all three | 8.4 KB | |
-| only `Draggable` | 6.3 KB | |
-| only `Droppable` | 3.0 KB | |
+| imported | min + gzip | over the shared entry | target |
+| --- | --- | --- | --- |
+| `@fragiola/dnd-react` | 3.6 KB | | ≤ 4 KB |
+| `@fragiola/dnd-react` + `/draggable` | 8.6 KB | 5.0 KB | ≤ 2 KB extra |
+| `@fragiola/dnd-react` + `/droppable` | 4.8 KB | 1.1 KB | ≤ 1.5 KB extra |
+| `@fragiola/dnd-react` + `/sortable` | 11.5 KB | 7.9 KB | ≤ 2.5 KB extra |
+| `@fragiola/dnd-react` + `/swappable` | 9.5 KB | 5.8 KB | ≤ 1.5 KB extra |
+| the shared entry, `/draggable`, `/droppable` | 9.2 KB | 5.5 KB | |
+| those three + `/sortable` | 12.2 KB | 3.0 KB over those three | |
+| those three + `/swappable` | 10.2 KB | 1.0 KB over those three | |
+| all five | 13.0 KB | 9.3 KB | |
+| only `Draggable` | 7.0 KB | | |
+| only `Droppable` | 3.1 KB | | |
+| only `Sortable` | 9.2 KB | | |
+| only `Swappable` | 7.6 KB | | |
 
-The draggable entry misses its target: it carries the pointer and keyboard sensors, the drag
-operation and the `translate` writer for every draggable. See [bundle size](/docs/guides/bundle-size)
+The drag sources miss their targets: each carries the pointer and keyboard sensors, the drag
+operation and the `translate` writer, shared between them, so an app that both drags and sorts
+pays for that machinery once. See [bundle size](/docs/guides/bundle-size)
 for what is in each number and how it is measured.
 
 ## Proved by a test
 
-A bundle test builds a fixture that imports only `Draggable` and fails when droppable code is in
-the output, and the same for each capability. A guard test fails when a capability imports
+A bundle test builds a fixture that imports only `Draggable` and fails when droppable, sortable or
+swappable code is in the output, and the same for each capability. A guard test fails when a capability imports
 another.
 
 ## No namespace object

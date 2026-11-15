@@ -7,16 +7,8 @@
 import { autoScroll, DragOverlay, useDragSpace } from "@fragiola/dnd-react";
 import { Draggable, DragHandle } from "@fragiola/dnd-react/draggable";
 import { Droppable } from "@fragiola/dnd-react/droppable";
-import {
-    type ComponentProps,
-    Profiler,
-    type ReactNode,
-    StrictMode,
-    useEffect,
-    useRef,
-    useState,
-} from "react";
-import { createRoot } from "react-dom/client";
+import { type ComponentProps, useEffect, useState } from "react";
+import { mount } from "./mount";
 
 const scroll = autoScroll({ threshold: 40, speed: 12 });
 
@@ -213,42 +205,7 @@ function Fixture() {
     );
 }
 
-/** The React commits so far, written outside React (a render would be a commit). */
-function Counted({ children }: { children: ReactNode }) {
-    const commits = useRef(0);
-    return (
-        <Profiler
-            id="fixture"
-            onRender={() => {
-                commits.current += 1;
-                const output = document.querySelector(
-                    '[data-testid="commits"]',
-                );
-                if (output) output.textContent = String(commits.current);
-            }}
-        >
-            {children}
-        </Profiler>
-    );
-}
-
 /** Mounts the fixture; the page's `<html dir>` sets the direction. */
 export function mountFixture(): void {
-    // which pointer pressed last: a test cancels or releases its capture by id
-    document.addEventListener(
-        "pointerdown",
-        (event) => {
-            document.body.dataset.pointerId = String(event.pointerId);
-        },
-        { capture: true },
-    );
-    const root = document.getElementById("root");
-    if (!root) throw new Error("no #root");
-    createRoot(root).render(
-        <StrictMode>
-            <Counted>
-                <Fixture />
-            </Counted>
-        </StrictMode>,
-    );
+    mount(<Fixture />);
 }

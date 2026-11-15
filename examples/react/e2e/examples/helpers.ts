@@ -95,3 +95,10 @@ export async function touchPath(
     });
     await client.detach();
 }
+
+/** The accessible names (`aria-label`) of the elements `locator` matches, in DOM order. */
+export function labels(locator: Locator): Promise<(string | null)[]> {
+    return locator.evaluateAll((elements) =>
+        elements.map((element) => element.getAttribute("aria-label")),
+    );
+}

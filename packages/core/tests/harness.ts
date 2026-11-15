@@ -13,6 +13,13 @@ import {
     type DroppableRegistration,
     registerDroppable,
 } from "../src/droppable";
+import {
+    registerSortable,
+    registerSortableGroup,
+    type SortableGroupOptions,
+    type SortableOptions,
+} from "../src/sortable";
+import { registerSwappable, type SwappableOptions } from "../src/swappable";
 
 let frames: (FrameRequestCallback | undefined)[] = [];
 const registrations: { unregister(): void }[] = [];
@@ -123,6 +130,38 @@ export function droppable(
     return { element: el, registration };
 }
 
+/** A sortable item registered on a new element at `box`. */
+export function sortable(options: SortableOptions, box: Box, parent?: Element) {
+    const el = element(box, parent);
+    const registration = registerSortable(el, options);
+    registrations.push(registration);
+    return { element: el, registration };
+}
+
+/** A sortable group's container registered on a new element at `box`. */
+export function sortableGroup(
+    options: SortableGroupOptions,
+    box: Box,
+    parent?: Element,
+) {
+    const el = element(box, parent);
+    const registration = registerSortableGroup(el, options);
+    registrations.push(registration);
+    return { element: el, registration };
+}
+
+/** A swappable item registered on a new element at `box`. */
+export function swappable(
+    options: SwappableOptions,
+    box: Box,
+    parent?: Element,
+) {
+    const el = element(box, parent);
+    const registration = registerSwappable(el, options);
+    registrations.push(registration);
+    return { element: el, registration };
+}
+
 let nextPointer = 1;
 
 /** A pointer pressed on `target` at (x, y); moves run their frame unless told not to. */
@@ -195,4 +234,30 @@ export function key(
     });
     target.dispatchEvent(event);
     return event;
+}
+
+/**
+ * A vertical scroll container at `box` whose content is `height` px tall: setting its `scrollTop`
+ * (clamped) moves the boxes of the elements inside it, as a browser would.
+ */
+export function scroller(box: Box, height: number) {
+    const el = element(box);
+    el.style.overflowY = "auto";
+    let top = 0;
+    Object.defineProperty(el, "scrollTop", {
+        get: () => top,
+        set: (value: number) => {
+            const next = Math.max(0, Math.min(height - box.height, value));
+            for (const child of el.querySelectorAll<
+                HTMLElement & { box?: Box }
+            >("*"))
+                if (child.box) child.box.y -= next - top;
+            top = next;
+        },
+    });
+    Object.defineProperty(el, "clientHeight", { get: () => box.height });
+    Object.defineProperty(el, "clientWidth", { get: () => box.width });
+    Object.defineProperty(el, "scrollHeight", { get: () => height });
+    Object.defineProperty(el, "scrollWidth", { get: () => box.width });
+    return el;
 }

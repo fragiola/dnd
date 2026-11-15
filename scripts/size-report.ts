@@ -123,18 +123,39 @@ async function appSizes(rolldown: Rolldown): Promise<string[]> {
     for (const [name, target] of [
         ["draggable", "≤ 2 KB extra"],
         ["droppable", "≤ 1.5 KB extra"],
+        ["sortable", "≤ 2.5 KB extra"],
+        ["swappable", "≤ 1.5 KB extra"],
     ] as const) {
         const both = await size(["index", name]);
         rows.push(
             `| \`@fragiola/dnd-react\` + \`/${name}\` | ${kb(both)} | ${kb(both - shared)} | ${target} |`,
         );
     }
-    const all = await size(["index", "draggable", "droppable"]);
-    rows.push(`| all three | ${kb(all)} | ${kb(all - shared)} | |`);
+    const three = await size(["index", "draggable", "droppable"]);
+    rows.push(
+        `| the shared entry, \`/draggable\`, \`/droppable\` | ${kb(three)} | ${kb(three - shared)} | |`,
+    );
+    // what sortable and swappable add on top of the drag machinery the draggable carries
+    for (const name of ["sortable", "swappable"] as const) {
+        const over = await size(["index", "draggable", "droppable", name]);
+        rows.push(
+            `| those three + \`/${name}\` | ${kb(over)} | ${kb(over - three)} over those three | |`,
+        );
+    }
+    const all = await size([
+        "index",
+        "draggable",
+        "droppable",
+        "sortable",
+        "swappable",
+    ]);
+    rows.push(`| all five | ${kb(all)} | ${kb(all - shared)} | |`);
     // what an app that imports one part ships: the rest of the entries is tree-shaken
     for (const [name, part] of [
         ["draggable", "Draggable"],
         ["droppable", "Droppable"],
+        ["sortable", "Sortable"],
+        ["swappable", "Swappable"],
     ] as const)
         rows.push(`| only \`${part}\` | ${kb(await size([name], part))} | | |`);
     return rows;

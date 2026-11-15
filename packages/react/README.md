@@ -1,8 +1,8 @@
 # @fragiola/dnd-react
 
 Composable React 19 drag and drop for **DnD**, the headless, extremely light drag and drop of the
-Fragiola family: draggables, droppables, drag handles and an optional overlay, through mouse, touch,
-pen and the keyboard.
+Fragiola family: draggables, droppables, sortable lists and grids, swappable items, drag handles and
+an optional overlay, through mouse, touch, pen and the keyboard.
 
 DnD is **headless**. It ships the behaviour, the accessibility and the wrappers, and **no CSS, no
 icons, no rendered overlays of its own look and no text**: a wrapper renders no HTML of its own,
@@ -11,6 +11,8 @@ it adds behaviour to the element it wraps, and you style it with `className`, `s
 
 Documentation, guides and live examples: **<https://fragiola.com/dnd>** (the API pages:
 [`Draggable`](https://fragiola.com/dnd/docs/api/draggable), [`Droppable`](https://fragiola.com/dnd/docs/api/droppable),
+[`Sortable`](https://fragiola.com/dnd/docs/api/sortable), [`SortableGroup`](https://fragiola.com/dnd/docs/api/sortable-group),
+[`Swappable`](https://fragiola.com/dnd/docs/api/swappable), [the helpers](https://fragiola.com/dnd/docs/api/helpers),
 [`DragOverlay`](https://fragiola.com/dnd/docs/api/drag-overlay), [hooks](https://fragiola.com/dnd/docs/api/hooks)).
 
 ## Install
@@ -36,6 +38,8 @@ the core's entry of the same name.
 | `@fragiola/dnd-react`           | `DragOverlay`, `useDragMonitor`, `useDragSpace`, the types `WrapperProps`, `RenderProp`, `RenderedProps` (and the whole shared core) |
 | `@fragiola/dnd-react/draggable` | `Draggable`, `DragHandle`, `useDraggable` (and `registerDraggable`)                                                                  |
 | `@fragiola/dnd-react/droppable` | `Droppable`, `useDroppable` (and `registerDroppable`)                                                                                |
+| `@fragiola/dnd-react/sortable`  | `Sortable`, `SortableGroup`, `DragHandle`, `useSortable`, `useSortableGroup` (and `registerSortable`, the strategies and helpers)    |
+| `@fragiola/dnd-react/swappable` | `Swappable`, `DragHandle`, `useSwappable` (and `registerSwappable`, `swapItems`, `swapBetween`)                                      |
 
 ## A minimal drag and drop
 
@@ -111,6 +115,56 @@ other props on to its element, as every Fragiola primitive does (`Dockable.TabSe
 
 In development, no child, several children, a fragment or text throw, and a child that never
 receives the ref is reported. Wrappers stack: `<Droppable><Draggable><Card /></Draggable></Droppable>`.
+
+## Sortable lists and swaps
+
+```tsx
+import {
+    moveBetween,
+    Sortable,
+    SortableGroup,
+} from "@fragiola/dnd-react/sortable";
+import { Swappable, swapItems } from "@fragiola/dnd-react/swappable";
+
+const COLUMNS = ["todo", "done"];
+
+<SortableGroup group="done" accepts={COLUMNS}>
+    <ul>
+        {board.done.map((id, index) => (
+            <Sortable
+                key={id}
+                id={id}
+                index={index}
+                group="done"
+                accepts={COLUMNS}
+                onSortEnd={(event) =>
+                    setBoard((now) => moveBetween(now, event))
+                }
+            >
+                <li>{id}</li>
+            </Sortable>
+        ))}
+    </ul>
+</SortableGroup>;
+
+<Swappable
+    id={tile}
+    index={index}
+    group="tiles"
+    onSwap={({ source, target }) =>
+        target && setTiles((now) => swapItems(now, source.index, target.index))
+    }
+>
+    <div className="tile data-dnd-swap-target:outline" />
+</Swappable>;
+```
+
+Items of one `group` are one list, with no wrapper around it (`SortableGroup` is only needed to
+sort into an empty group); `accepts` lets a group take another's items. While an item is dragged
+the core shifts its neighbours by their CSS `translate`, from their boxes at rest, without a DOM
+move or a React render; `onSortEnd` reports `{ from, to, canceled }` and the pure helpers apply
+it to your state. Strategies: `verticalList` (default), `horizontalList` and `grid`, each its own
+export. Animate the shifts in your CSS: `[data-dnd-sorting] { transition: translate 180ms }`.
 
 ## A handle, controls and the keyboard
 
@@ -188,14 +242,21 @@ latest. Nothing touches the DOM while rendering, so server rendering works as is
 `pnpm size` reports each entry, and what an app's production build ships for the entries it
 imports, with the core they pull (min + gzip, React left out, the development checks dropped):
 
-| imported                             | min + gzip       | target (D13)   |
-| ------------------------------------ | ---------------- | -------------- |
-| `@fragiola/dnd-react`                | 3.6 KB           | ≤ 4 KB         |
-| `@fragiola/dnd-react` + `/draggable` | 8.0 KB (+4.3 KB) | ≤ 2 KB extra   |
-| `@fragiola/dnd-react` + `/droppable` | 4.8 KB (+1.1 KB) | ≤ 1.5 KB extra |
-| all three                            | 8.4 KB           |                |
-| only `Draggable`                     | 6.3 KB           |                |
-| only `Droppable`                     | 3.0 KB           |                |
+| imported                                     | min + gzip        | target         |
+| -------------------------------------------- | ----------------- | -------------- |
+| `@fragiola/dnd-react`                        | 3.6 KB            | ≤ 4 KB         |
+| `@fragiola/dnd-react` + `/draggable`         | 8.6 KB (+5.0 KB)  | ≤ 2 KB extra   |
+| `@fragiola/dnd-react` + `/droppable`         | 4.8 KB (+1.1 KB)  | ≤ 1.5 KB extra |
+| `@fragiola/dnd-react` + `/sortable`          | 11.5 KB (+7.9 KB) | ≤ 2.5 KB extra |
+| `@fragiola/dnd-react` + `/swappable`         | 9.5 KB (+5.8 KB)  | ≤ 1.5 KB extra |
+| the shared entry, `/draggable`, `/droppable` | 9.2 KB            |                |
+| all five                                     | 13.0 KB           |                |
+| only `Draggable` / `Droppable`               | 7.0 KB / 3.1 KB   |                |
+| only `Sortable` / `Swappable`                | 9.2 KB / 7.6 KB   |                |
+
+The drag sources miss their targets: sortable and swappable share the draggable's drag-source
+machinery (in the shared core, about 5.0 KB), so over the draggable and droppable entries they add
+3.0 KB and 1.0 KB.
 
 The draggable misses its target. Most of it is behaviour the core's draggable capability carries
 for every draggable: the pointer sensor (activation, capture, the press claim and its focus), the
@@ -209,9 +270,10 @@ first arrow keys depend on a chunk arriving, so it was left in.
 ## Known limits
 
 An `onMouseDown` on a draggable does not run (the press is claimed on `pointerdown`; use
-`onPointerDown`), a drag never crosses documents, and auto-scroll uses the scroll range measured
-when the drag starts. In Firefox, set `overflow-anchor: none` on a scroll container whose
-draggables can be cancelled at its end. See
+`onPointerDown`), a drag never crosses documents, auto-scroll uses the scroll range measured
+when the drag starts, and the `grid`
+strategy suits items of one size. In Firefox, set `overflow-anchor: none` on a scroll container whose
+items are dragged or shifted. See
 [limitations](https://fragiola.com/dnd/docs/limitations).
 
 ## Stability

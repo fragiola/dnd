@@ -1,12 +1,12 @@
 // The keyboard sensor (D10): on the activator (the draggable or its handle), Space or Enter grabs,
 // the arrows move by a step or to the next or previous droppable in reading order, Space or
 // Enter drops, Escape cancels, and Tab or the focus leaving cancels. Arrows are visual: in RTL,
-// ArrowRight still moves right. Focus returns to the activator after a drop or Escape, unless the
-// app moved it.
-import { center, listen, measure } from "../dom";
+// ArrowRight still moves right. A step scrolls its destination into view within its scroll
+// containers. Focus returns to the activator after a drop or Escape, unless the app moved it.
+import { center, listen, measure, reveal } from "../dom";
 import type { Candidate } from "../operation";
 import type { Point } from "../types";
-import type { SensorContext } from "./context";
+import type { KeyStep, SensorContext } from "./context";
 
 const ARROWS: Record<string, readonly [number, number] | undefined> = {
     ArrowRight: [1, 0],
@@ -88,6 +88,38 @@ export function bindKeyboard(
         const view = doc.defaultView;
         let at: Candidate | undefined;
         let refocus = true;
+        /** the centre of the next droppable in reading order, from the one it is at */
+        const nextTarget = (
+            forward: boolean,
+            rtl: boolean,
+        ): KeyStep | undefined => {
+            const order = readingOrder(session.targets(), rtl);
+            const current = at ?? session.hovered();
+            const index = order.findIndex(
+                (candidate) => candidate.entry === current?.entry,
+            );
+            const next =
+                order[
+                    index < 0
+                        ? forward
+                            ? 0
+                            : order.length - 1
+                        : Math.max(
+                              0,
+                              Math.min(
+                                  order.length - 1,
+                                  index + (forward ? 1 : -1),
+                              ),
+                          )
+                ];
+            if (!next) return undefined;
+            at = next;
+            return {
+                point: center(next.rect),
+                rect: next.rect,
+                element: next.entry.element,
+            };
+        };
         session.onEnd(
             listen(doc, "keydown", (key) => {
                 // the grab itself reaches the document after the activator
@@ -106,32 +138,28 @@ export function bindKeyboard(
                     const rtl =
                         view?.getComputedStyle(context.element).direction ===
                         "rtl";
-                    const order = readingOrder(session.targets(), rtl);
-                    const current = at ?? session.hovered();
-                    const index = order.findIndex(
-                        (candidate) => candidate.entry === current?.entry,
-                    );
                     // forward is down, or toward the inline end: right in LTR, left in RTL
                     const forward =
                         arrow[1] > 0 || arrow[0] * (rtl ? -1 : 1) > 0;
-                    const next =
-                        order[
-                            index < 0
-                                ? forward
-                                    ? 0
-                                    : order.length - 1
-                                : Math.max(
-                                      0,
-                                      Math.min(
-                                          order.length - 1,
-                                          index + (forward ? 1 : -1),
-                                      ),
-                                  )
-                        ];
-                    if (!next) return;
-                    at = next;
-                    pointer = center(next.rect);
+                    // a capability with its own order of places (a sortable's slots) says where
+                    const to = context.step
+                        ? context.step(session, forward, rtl)
+                        : nextTarget(forward, rtl);
+                    if (!to) return;
+                    // the destination is scrolled into view, and the pointer follows it there;
+                    // the operation measures again after that scroll
+                    const scrolled = reveal(to.element, to.rect);
+                    pointer = {
+                        x: to.point.x - scrolled.x,
+                        y: to.point.y - scrolled.y,
+                    };
                     session.move(pointer);
+                    // measured again at once, so a key pressed before the next frame steps on
+                    // from where things are now
+                    if (scrolled.x || scrolled.y) {
+                        session.invalidate();
+                        session.flush();
+                    }
                 } else {
                     const step = context.keyboard()?.step ?? 25;
                     pointer = {

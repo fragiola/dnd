@@ -1,0 +1,133 @@
+---
+title: A kanban board
+description: Columns of cards that sort and move between columns, an empty column through SortableGroup, a column that refuses cards, and your state applying it.
+---
+
+A kanban is several sortable groups that accept each other. The packages preview every move and
+report it; the board's data, its order and its look stay yours.
+
+## The data
+
+Keep one list of ids per column, keyed by the column's group name. `moveBetween` applies a sort
+to exactly that shape:
+
+```ts title="board.ts"
+type Column = "todo" | "doing" | "done";
+
+const START: Record<Column, readonly string[]> = {
+    todo: ["login", "export"],
+    doing: ["guide"],
+    done: [],
+};
+```
+
+## The columns
+
+<Steps>
+<Step>
+
+**Each card is a `Sortable`** of its column's group, with its index in the column. `accepts`
+lists the groups whose cards the column takes: here, every column takes the others'.
+
+</Step>
+<Step>
+
+**Each column is a `SortableGroup`.** A non-empty column would not need it, but an empty one has
+no card to drop onto: the group's container is what takes the first card. Give it some height.
+
+</Step>
+<Step>
+
+**`onSortEnd` applies the move** with `moveBetween`, which returns the same board for a
+cancelled move.
+
+</Step>
+</Steps>
+
+```tsx title="kanban.tsx"
+import { moveBetween, Sortable, SortableGroup, type SortEndEvent } from "@fragiola/dnd-react/sortable";
+
+const COLUMNS: Column[] = ["todo", "doing", "done"];
+
+export function Kanban() {
+    const [board, setBoard] = useState(START);
+    const onSortEnd = (event: SortEndEvent) => setBoard((now) => moveBetween(now, event));
+    return (
+        <div className="board">
+            {COLUMNS.map((column) => (
+                <SortableGroup key={column} group={column} accepts={COLUMNS}>
+                    <ul aria-label={column} className="column">
+                        {board[column].map((id, index) => (
+                            <Sortable
+                                key={id}
+                                id={id}
+                                index={index}
+                                group={column}
+                                accepts={COLUMNS}
+                                onSortEnd={onSortEnd}
+                            >
+                                <li className="card">{taskOf(id).title}</li>
+                            </Sortable>
+                        ))}
+                    </ul>
+                </SortableGroup>
+            ))}
+        </div>
+    );
+}
+```
+
+No provider and no board wrapper: the columns find each other through the document's drag space,
+because they share a scope.
+
+<Example id="kanban" />
+
+## A column that refuses
+
+A group whose members do not list another group in `accepts` never takes its cards: over it, the
+preview stays where it was, and its own cards still sort inside it. For a column that takes
+nothing from the others, leave `accepts` out of it; for a rule that depends on the card, pass a
+predicate:
+
+```tsx title="archive.tsx"
+<SortableGroup group="archive" accepts={(source) => source.group === "done"}>
+    <ul aria-label="Archive" className="column" />
+</SortableGroup>
+```
+
+A rule that depends on the board (a work-in-progress limit) belongs in the space's drop
+middleware, which sees a sort as a drop on the group: see
+[groups](/docs/concepts/groups#a-sort-is-a-drop-on-a-group).
+
+## Styling the board
+
+- **The columns taking part.** `data-dnd-sorting` is on every card and `SortableGroup` of the
+  groups taking part in the sort in progress: style the open columns with it.
+- **The dragged card.** `data-dnd-dragging`, as for any drag.
+- **The shifts.** A `transition: translate …` scoped to `[data-dnd-sorting]`: see
+  [animating shifts](/docs/guides/animating-shifts).
+
+## Scrolling columns
+
+A column with a fixed height and `overflow: auto` scrolls. Two things help:
+
+- give the cards `autoScroll={autoScroll()}`, so the column scrolls when a card nears its edge;
+- set `overflow-anchor: none` on the column, so Firefox never takes a shifted card as its scroll
+  anchor and scrolls the column back when the shifts are cleared.
+
+```css title="column.css"
+.column {
+    overflow: auto;
+    overflow-anchor: none; /* Firefox: a shifted card is not a scroll anchor */
+}
+```
+
+When the columns clip their cards (`overflow: hidden`, or a Dockable panel), give the cards
+`translate={false}` and render a [`DragOverlay`](/docs/api/drag-overlay): the card stays in the
+column as a placeholder, shifted to where it would land.
+
+## The keyboard
+
+Every card is a tab stop. Space or Enter grabs it, the arrows move it one slot, past the end of a
+column on into the next accepting column in reading order, and Space or Enter drops it. Say each
+step in a live region from `useDragMonitor`: the drag events' target is the column's group name.

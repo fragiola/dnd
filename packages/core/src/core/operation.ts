@@ -29,7 +29,7 @@ import type {
     Point,
     Rect,
 } from "./types";
-import { createWriter } from "./writer";
+import { createWriter, restRect } from "./writer";
 
 /** A draggable, as the operation drives it. @internal */
 export interface SourceEntry extends DraggableEntry {
@@ -53,6 +53,8 @@ export interface Session extends ActiveSession {
     operation: DragOperation;
     /** the pointer moved: the next frame follows it */
     move(pointer: Point): void;
+    /** runs the pending frame now (a keyboard step that scrolled: the next one reads its rects) */
+    flush(): void;
     drop(): void;
     /** the droppables that accept the source, as measured */
     targets(): readonly Candidate[];
@@ -115,13 +117,13 @@ export function startDrag(
                 continue;
             let accepted = met.get(other);
             if (accepted === undefined) {
-                accepted = accepts(other, source);
+                accepted = accepts(other, entry);
                 met.set(other, accepted);
                 other.start(accepted);
             }
             (accepted ? next : refused).push({
                 id: other.id(),
-                rect: measure(other.element),
+                rect: other.rect?.() ?? restRect(other.element),
                 entry: other,
                 accepted,
             });
@@ -301,6 +303,9 @@ export function startDrag(
             if (done) return;
             dirty = true;
             schedule();
+        },
+        flush() {
+            if (!done && frameId !== undefined) frame();
         },
         targets: () => accepting,
         hovered: () => hovered,

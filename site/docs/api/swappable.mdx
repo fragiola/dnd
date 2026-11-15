@@ -1,0 +1,100 @@
+---
+title: Swappable
+description: The wrapper that makes its single child an item that swaps places with another, by pointer and keyboard. Every prop, its attributes and the event.
+---
+
+`Swappable` makes the one element it wraps an item that swaps with the items of its group, and of
+the groups that accept it. It renders no element of its own. A swappable item is both a drag
+source and a drop target of its space.
+
+```tsx title="tiles.tsx"
+import { Swappable, swapItems } from "@fragiola/dnd-react/swappable";
+
+{tiles.map((tile, index) => (
+    <Swappable
+        key={tile.id}
+        id={tile.id}
+        index={index}
+        group="tiles"
+        onSwap={({ source, target }) => target && setTiles((now) => swapItems(now, source.index, target.index))}
+    >
+        <div aria-label={tile.name} className="tile data-dnd-swap-target:outline" />
+    </Swappable>
+))}
+```
+
+## Props
+
+| prop | type | default | |
+| --- | --- | --- | --- |
+| `id` | `string \| number` | required | unique within its scope; also its drop target id |
+| `index` | `number` | required | its place in its group's list, from 0, reported in the swap event |
+| `group` | `string` | required | the items it swaps with, within its scope (its own group's always) |
+| `type` | `string` | | what a plain droppable's `accepts` list matches |
+| `data` | `unknown` | | anything the app wants back in the events |
+| `scope` | `string` | the default scope | only swappables and droppables of the same scope meet it |
+| `space` | `DragSpace` | its document's | an explicit space from `createDragSpace` |
+| `disabled` | `boolean` | `false` | neither drags nor swaps |
+| `accepts` | `string[] \| (source: SwapSource) => boolean` | its own group | the other groups whose items it swaps with |
+| `activation` | `{ distance?, delay?, tolerance? }` | `3` px; touch `200` ms within `5` px | when a press becomes a drag |
+| `autoScroll` | `AutoScroll` | | opt-in auto-scroll, from `autoScroll()` |
+| `translate` | `boolean` | `true` | whether it follows the pointer; `false` when a `DragOverlay` shows it, and it moves to the target's place instead |
+| `describedBy` | `string` | | the id of the element describing how to swap it (`aria-describedby`) |
+| `onSwap` | `(event: SwapEvent) => void` | | dropped (on a target or not) or cancelled |
+| `className`, `style`, `render`, `ref`, `children` | | | as on [`Draggable`](/docs/api/draggable#props), with the swappable's state |
+
+Any other prop is forwarded to the element. `DragHandle`, re-exported from this entry, works
+inside a `Swappable`.
+
+## The event
+
+```ts title="swap-event.ts"
+interface SwapEvent {
+    type: "swap";
+    source: { id: string | number; group: string; index: number };
+    target?: { id: string | number; group: string; index: number };
+    canceled: boolean;
+    operation: DragOperation;
+    input: "pointer" | "keyboard";
+}
+```
+
+There is no `target` when the item was dropped over no other swappable item (an item is never a
+target of its own drag), when a drop middleware vetoed it, and when it was cancelled. Apply it with [`swapItems`](/docs/api/helpers#swapitems) or
+[`swapBetween`](/docs/api/helpers#swapbetween). The core clears the shifts after `onSwap`.
+
+## State
+
+`{ dragging: boolean; disabled: boolean }`, given to `className`, `style` and `render`. A swappable
+item re-renders when its drag starts and ends; the preview renders nothing.
+
+## Attributes
+
+| attribute | when | written by |
+| --- | --- | --- |
+| `data-dnd-part="swappable"` | always | React |
+| `data-dnd-id` | always: the `id`, as a string | React |
+| `data-dnd-dragging` | it is the item dragged | React |
+| `data-dnd-swap-target` | it is the item the drag would swap with now, shifted into the source's place | the core, with its `translate` |
+| `data-dnd-disabled`, `aria-disabled="true"` | `disabled` | React |
+| `aria-describedby` | `describedBy` is set | React |
+
+`data-dnd-swap-target` is written by the core, never rendered by React, so a swap preview commits
+nothing.
+
+<Example id="swap-between-groups" />
+
+## useSwappable
+
+`useSwappable(options)` takes the props above that are options and returns `{ state, props }`:
+spread `props` onto one element.
+
+```tsx title="tile.tsx"
+const { state, props } = useSwappable({ id, index, group: "tiles", onSwap });
+return <div {...props} className={state.dragging ? "tile lifted" : "tile"} />;
+```
+
+## In the core
+
+`registerSwappable(element, options)` takes the same options without `describedBy`, plus
+`handle`, and returns a registration (`update`, `unregister`, `getState`, `subscribe`).

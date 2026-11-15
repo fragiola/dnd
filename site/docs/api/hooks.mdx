@@ -69,3 +69,16 @@ useEffect(
     [space],
 );
 ```
+
+## useSortable, useSortableGroup and useSwappable
+
+The sortable and swappable entries have the same lower layer, each returning `{ state, props }`:
+
+| hook | entry | takes | state |
+| --- | --- | --- | --- |
+| `useSortable(options)` | `/sortable` | the [`Sortable`](/docs/api/sortable#props) options | `{ dragging, sorting, disabled }` |
+| `useSortableGroup(options)` | `/sortable` | the [`SortableGroup`](/docs/api/sortable-group#props) options | `{ sorting, disabled }` |
+| `useSwappable(options)` | `/swappable` | the [`Swappable`](/docs/api/swappable#props) options | `{ dragging, disabled }` |
+
+They re-render at a sort's or a swap's start and end only: the preview's shifts and
+`data-dnd-swap-target` are written by the core.

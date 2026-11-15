@@ -160,3 +160,93 @@ Each with a regression test, besides E1–E3 above:
   "all three" (8.4 KB), and shared pieces moved into the core only when two capabilities use them.
 - **Scroll anchoring (E4)**: a sortable list is a scroll container whose children move; setting
   `overflow-anchor: none` on the containers during a drag likely belongs in the core then.
+
+## Sortable and swappable (Epic #6)
+
+What Epic #6 added on the walking skeleton, measured the same way. The decisions are S1–S5 in
+`AGENTS.md`; the capability-by-capability comparison with dnd-kit is
+[`dnd-kit-parity.md`](dnd-kit-parity.md).
+
+### The bets, again
+
+All six held for the new entries. A sortable list and a swap grid need no provider and no wrapper
+around the list (bet 2), `Sortable`, `SortableGroup` and `Swappable` render exactly their child
+(bet 1), only `Sortable` ships no swappable, draggable-only or droppable code and only `Swappable`
+none of sortable's (bet 3, the bundle test), the preview is `translate` shifts written by the core
+with no React commit (bet 4), the same fixture spec runs pointer, keyboard and touch in LTR and RTL
+in Chromium and Firefox (bet 5), and the ecosystem gallery sorts inside Dockable panels and
+popouts, inside Grid Layout items and over Fragiola UI items (bet 6).
+
+### Final sizes
+
+`pnpm size` on the final branch (min + gzip, React entry with the core it pulls, React left out,
+development checks dropped):
+
+| imported                                     | min + gzip                       | target                     |
+| -------------------------------------------- | -------------------------------- | -------------------------- |
+| `@fragiola/dnd-react`                        | 3.6 KB                           | ≤ 4 KB: met                |
+| `@fragiola/dnd-react` + `/draggable`         | 8.6 KB (+5.0 KB)                 | ≤ +2 KB: **missed** (D13)  |
+| `@fragiola/dnd-react` + `/droppable`         | 4.8 KB (+1.1 KB)                 | ≤ +1.5 KB: met             |
+| `@fragiola/dnd-react` + `/sortable`          | 11.5 KB (+7.9 KB)                | ≤ +2.5 KB: **missed** (S5) |
+| `@fragiola/dnd-react` + `/swappable`         | 9.5 KB (+5.8 KB)                 | ≤ +1.5 KB: **missed** (S5) |
+| the shared entry, `/draggable`, `/droppable` | 9.2 KB                           |                            |
+| those three + `/sortable`                    | 12.2 KB (+3.0 KB over the three) |                            |
+| those three + `/swappable`                   | 10.2 KB (+1.0 KB over the three) |                            |
+| all five                                     | 13.0 KB                          |                            |
+| only `Draggable` / `Droppable`               | 7.0 KB / 3.1 KB                  |                            |
+| only `Sortable` / `Swappable`                | 9.2 KB / 7.6 KB                  |                            |
+
+The draggable entry measures 8.6 KB now (8.0 KB at the end of Epic #1): issue #7 moved its drag-source registration into the shared core (`source.ts`), so that sortable and swappable use it without importing `/draggable` (S1), and Epic #6's review added the keyboard's scroll into view (about 0.3 KB, shared by every drag source). **Why S5 misses:** its targets are counted "on top of the shared core", but a sortable or
+swappable item is a drag source, and carries the same pointer and keyboard sensors, drag operation
+and `translate` writer as a draggable: about 5.0 KB that the draggable entry pays too. Measured
+over that machinery (the three Epic #1 entries), sortable adds 3.0 KB (the groups as drop targets,
+the three strategies, the keyboard slots and the helpers) and swappable 1.0 KB. An app that uses
+draggables and a sortable list pays the shared part once. Making the machinery smaller would
+lower all three entries at once; it is the next size pass, not a sortable one.
+
+### React commits per sort and per swap
+
+Measured by the React tests (`packages/react/tests/sortable.test.tsx`, `swappable.test.tsx`,
+Profiler) and the fixture's render counter (`apps/playground/e2e/sortable.spec.ts`, Chromium and
+Firefox):
+
+| moment                          | sortable                                                                                                        | swappable                                                           |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| the start                       | 1 per item and `SortableGroup` of the groups taking part (they become `data-dnd-sorting`), the source with them | 1, the source (`data-dnd-dragging`)                                 |
+| the preview, however it changes | **0**: the shifts are `translate`, written by the core at most once per frame                                   | **0**: the target's shift and `data-dnd-swap-target` are the core's |
+| the drop                        | the app's own commit of its new order (one), then 1 per item back to rest, in the same frame                    | the app's commit, then 1 for the source                             |
+
+The first frame after a release already shows the app's new order with no shift left (asserted in
+the fixture spec), so a drop never flickers, and a transition scoped to `[data-dnd-sorting]` never
+animates it (S4).
+
+### The examples and the gallery
+
+Eleven examples (`sortable-list`, `sortable-horizontal`, `sortable-grid`, `kanban`,
+`sortable-handle`, `sortable-keyboard`, `sortable-rtl`, `swap-grid`, `swap-between-groups`,
+`sortable-dockable`, `sortable-fragiola-ui`), each with its own e2e spec, in the five themes and
+inside the iframe; two playground scenarios (`interop/grid-layout-kanban`,
+`interop/dockable-popout-sortable`). Dockable popouts run under Playwright (Chromium and Firefox):
+the popout scenario sorts in the main window, in the popout window's own drag space, and again
+once docked back. What the examples could not express is in [`examples-gaps.md`](examples-gaps.md)
+(E9–E12); none needed a package change.
+
+### The hand-off items, answered
+
+- **Re-parenting during a drag** never happens: the preview is `translate` shifts, the DOM moves
+  only when the app commits (S2), so no `lostpointercapture`.
+- **The keyboard's targets mode** became the sortable slots and the swap targets, over
+  `readingOrder`.
+- **Placeholders and the overlay**: `translate={false}` makes the dragged item its own
+  placeholder, shifted to where it lands, while a `DragOverlay` carries the copy
+  (`sortable-dockable`, the Grid Layout kanban).
+- **Commits per reorder**: see the table above.
+- **Size**: measured against the three Epic #1 entries, as planned (above).
+- **Scroll anchoring (E4)**: left to the app, as documented CSS (S4); every example sets it.
+
+### Validation
+
+`pnpm check`, `typecheck`, `test` (304: core 144, React 62, playground 23, examples 41, site 34),
+`build`, `size`, `E2E_ALL_THEMES=1 pnpm e2e` (156 in the playground: Chromium, Firefox and a
+phone, the Grid Layout scenarios included; 195 in the examples app: every example in five themes,
+inside an iframe, and its own spec) and `pnpm site:export --base /dnd` (validated).

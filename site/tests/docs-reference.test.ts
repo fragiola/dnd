@@ -55,11 +55,38 @@ describe("the API pages", () => {
             expect(droppable, option).toContain(`\`${option}\``);
     });
 
+    it("name every Sortable, SortableGroup and Swappable option", () => {
+        const wrappers = [
+            ["packages/react/src/sortable/Sortable.tsx", "api/sortable"],
+            [
+                "packages/react/src/sortable/SortableGroup.tsx",
+                "api/sortable-group",
+            ],
+            ["packages/react/src/swappable/Swappable.tsx", "api/swappable"],
+        ] as const;
+        for (const [source, path] of wrappers) {
+            const options = listed(read(source), "OPTIONS");
+            expect(options.length, source).toBeGreaterThan(3);
+            for (const option of options)
+                expect(page(path), `${path}: ${option}`).toContain(
+                    `\`${option}\``,
+                );
+        }
+    });
+
     it("name every attribute the hooks set", () => {
         const pages = [
             ["packages/react/src/draggable/useDraggable.ts", "api/draggable"],
-            ["packages/react/src/draggable/DragHandle.tsx", "api/drag-handle"],
+            ["packages/react/src/DragHandle.tsx", "api/drag-handle"],
             ["packages/react/src/droppable/useDroppable.ts", "api/droppable"],
+            ["packages/react/src/sortable/useSortable.ts", "api/sortable"],
+            [
+                "packages/react/src/sortable/useSortableGroup.ts",
+                "api/sortable-group",
+            ],
+            ["packages/react/src/swappable/useSwappable.ts", "api/swappable"],
+            // written by the core with the target's shift, never rendered
+            ["packages/core/src/swappable/index.ts", "api/swappable"],
         ] as const;
         const states = page("concepts/state-attributes");
         for (const [source, path] of pages) {
@@ -93,5 +120,40 @@ describe("the API pages", () => {
         ].map((m) => m[1] ?? "");
         expect(values.length).toBeGreaterThan(5);
         for (const name of values) expect(core, name).toContain(name);
+    });
+
+    it("name every value export of the sortable and swappable entries", () => {
+        const pages = [
+            "api/sortable",
+            "api/sortable-group",
+            "api/swappable",
+            "api/helpers",
+        ]
+            .map(page)
+            .join("\n");
+        for (const entry of ["sortable", "swappable"]) {
+            const source = read(`packages/core/src/${entry}/index.ts`);
+            const names = [
+                // re-exported: `export { a, type B, c } from "…"`
+                ...[...source.matchAll(/export \{([^}]*)\}/g)].flatMap(
+                    (match) =>
+                        (match[1] ?? "")
+                            .split(",")
+                            .map((name) => name.trim())
+                            .filter(
+                                (name) => name && !name.startsWith("type "),
+                            ),
+                ),
+                // declared: `export function a`, `export const b`
+                ...[
+                    ...source.matchAll(
+                        /^export (?:function|const) ([a-zA-Z]+)/gm,
+                    ),
+                ].map((match) => match[1] ?? ""),
+            ];
+            expect(names.length, entry).toBeGreaterThan(2);
+            for (const name of names)
+                expect(pages, `${entry}: ${name}`).toContain(`\`${name}`);
+        }
     });
 });

@@ -7,6 +7,8 @@ export default defineConfig({
         index: "src/index.ts",
         draggable: "src/draggable/index.ts",
         droppable: "src/droppable/index.ts",
+        sortable: "src/sortable/index.ts",
+        swappable: "src/swappable/index.ts",
     },
     format: "esm",
     platform: "browser",

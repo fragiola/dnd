@@ -1,6 +1,6 @@
 ---
 title: DnD — headless drag and drop for React
-description: A headless drag and drop for React. Wrappers that render no HTML of their own, no provider, pointer and keyboard; the markup and every pixel are yours.
+description: A headless drag and drop for React. Drag, drop, sort and swap with wrappers that render no HTML, no provider, pointer and keyboard; every pixel is yours.
 layout: landing
 ---
 
@@ -27,7 +27,8 @@ A draggable in one corner of the tree and a droppable in another find each other
 space kept per document.
 </Feature>
 <Feature title="Pay for what you import">
-Draggable and droppable are separate entries: an app that imports one ships none of the other.
+Draggable, droppable, sortable and swappable are separate entries: an app ships only the ones it
+imports.
 </Feature>
 <Feature title="Pointer and keyboard">
 Mouse, touch and pen through Pointer Events, and a keyboard path that grabs, moves, drops and
@@ -54,10 +55,31 @@ Neither wrapper renders an element, and nothing wraps them both. The state arriv
 as `data-dnd-*` attributes.
 </Section>
 
+<Section title="Sort and swap, with your state" eyebrow="Sortable and swappable">
+
+```tsx title="list.tsx"
+import { arrayMove, Sortable } from "@fragiola/dnd-react/sortable";
+
+{tasks.map((id, index) => (
+    <Sortable key={id} id={id} index={index} group="tasks" onSortEnd={(event) => setTasks((now) => arrayMove(now, event.from.index, event.to.index))}>
+        <li>{id}</li>
+    </Sortable>
+))}
+```
+
+No list wrapper: items of one group find each other. While an item is dragged, the core shifts
+its neighbours by their `translate`, without a DOM move or a React render; on the drop your state
+applies the move with a pure helper. Lists, rows, grids, kanban columns that accept each other,
+and swaps within and across groups.
+
+<Example id="kanban" variant="card" />
+</Section>
+
 <Section title="Made for the Fragiola family">
 <Cards>
 <Card title="With Dockable" href="/docs/guides/with-dockable" description="Drop a card on a tabset to open a tab, drag inside panels and popouts." />
 <Card title="With Grid Layout" href="/docs/guides/with-grid-layout" description="Drag inside a grid item without moving it, add items with item.add." />
+<Card title="A kanban board" href="/docs/guides/kanban" description="Columns that sort and accept each other's cards, an empty column, a column that refuses." />
 <Card title="Bundle size" href="/docs/guides/bundle-size" description="What each entry costs, measured on a production build." />
 </Cards>
 </Section>

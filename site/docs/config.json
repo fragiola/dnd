@@ -43,6 +43,18 @@
                     "path": "concepts/collision"
                 },
                 {
+                    "label": "Sortable lists",
+                    "path": "concepts/sortable"
+                },
+                {
+                    "label": "Swappable items",
+                    "path": "concepts/swappable"
+                },
+                {
+                    "label": "Groups and accepts",
+                    "path": "concepts/groups"
+                },
+                {
                     "label": "Keyboard and accessibility",
                     "path": "concepts/keyboard-and-accessibility"
                 }
@@ -53,6 +65,14 @@
             "collapsible": true,
             "defaultOpen": true,
             "pages": [
+                {
+                    "label": "A kanban board",
+                    "path": "guides/kanban"
+                },
+                {
+                    "label": "Animating the shifts",
+                    "path": "guides/animating-shifts"
+                },
                 {
                     "label": "With Dockable",
                     "path": "guides/with-dockable"
@@ -87,6 +107,22 @@
                 {
                     "label": "Droppable",
                     "path": "api/droppable"
+                },
+                {
+                    "label": "Sortable",
+                    "path": "api/sortable"
+                },
+                {
+                    "label": "SortableGroup",
+                    "path": "api/sortable-group"
+                },
+                {
+                    "label": "Swappable",
+                    "path": "api/swappable"
+                },
+                {
+                    "label": "Helpers",
+                    "path": "api/helpers"
                 },
                 {
                     "label": "DragOverlay",

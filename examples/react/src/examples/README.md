@@ -25,10 +25,12 @@ looking for its feature would search, and `order` is its place inside the catego
 | `getting-started`    | the first drags: a draggable and a droppable with no provider, the bare wrappers                                                   |
 | `draggable`          | the dragged side: handles, controls that never drag, activation, `render`                                                          |
 | `droppable`          | the drop side: `accepts`, scopes, collision strategies, refused drops                                                              |
+| `sortable`           | lists, rows and grids the app reorders: strategies, groups and `accepts`, handles, RTL                                             |
+| `swappable`          | items that exchange places, within a group and across groups                                                                       |
 | `keyboard`           | grabbing, moving and dropping without a pointer, and what the app announces                                                        |
 | `overlay-and-scroll` | `DragOverlay` out of clipped containers, auto-scroll, several scroll containers                                                    |
 | `mobile`             | touch: the delay activation, page scrolling kept                                                                                   |
-| `interop`            | dnd with the family: inside Dockable panels, onto a tabset (Grid Layout's integration is a playground scenario until it is on npm) |
+| `interop`            | dnd with the family: inside Dockable panels, onto a tabset, sortable panels, Fragiola UI items (Grid Layout: playground scenarios) |
 | `styling`            | how a drag looks when it is not about one feature: the lift, the placeholder, RTL                                                  |
 
 ## Adding an example
@@ -71,7 +73,7 @@ theme's CSS, and nothing else.
 - **No provider, shown**: the examples never wrap their draggables and droppables in anything of
   the package's: each wrapper sits where its element is.
 - **Copyable imports only**: `react`, `@fragiola/dnd-react` (it re-exports the core) and its
-  capability entries (`/draggable`, `/droppable`), `@fragiola/dockable-react` for the integrations,
+  capability entries (`/draggable`, `/droppable`, `/sortable`, `/swappable`), `@fragiola/dockable-react` for the integrations,
   `lucide-react`, Fragiola UI (`#/components/ui/*`, `#/components/atoms/*`, `#/lib/cn`), and
   relative files inside `src/examples/`. `#/` is the app's `src/`; `@name` is reserved for packages
   (site export contract, §6). `tests/examples.test.ts` enforces it.

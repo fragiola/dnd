@@ -14,12 +14,12 @@ its own entry, and easy composition with Dockable and Grid Layout.
 
 Other adapters may follow React, so **every piece of logic that isn't rendering lives in the core**.
 
-| package                  | name                  | contains                                                                                                                  | depends on                                                      |
-| ------------------------ | --------------------- | ------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| `packages/core`          | `@fragiola/dnd`       | the shared core (drag space, sensors, collision, events, types) and one entry per capability (`/draggable`, `/droppable`) | DOM only, zero runtime deps                                     |
-| `packages/react`         | `@fragiola/dnd-react` | the wrappers and hooks of each capability, re-exporting the core entry by entry: **all a React app installs**             | `@fragiola/dnd` (same version), peer `react`, `react-dom` (^19) |
-| `apps/playground`        | private               | the dev app (every site example live, dev-only scenarios, themes and source), unstyled fixture pages driven by Playwright | both packages, `examples/react`                                 |
-| `examples/react`, `site` | private               | the site's examples (the embed app) and pages, exported for fragiola.com                                                  |                                                                 |
+| package                  | name                  | contains                                                                                                                                             | depends on                                                      |
+| ------------------------ | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| `packages/core`          | `@fragiola/dnd`       | the shared core (drag space, sensors, collision, events, types) and one entry per capability (`/draggable`, `/droppable`, `/sortable`, `/swappable`) | DOM only, zero runtime deps                                     |
+| `packages/react`         | `@fragiola/dnd-react` | the wrappers and hooks of each capability, re-exporting the core entry by entry: **all a React app installs**                                        | `@fragiola/dnd` (same version), peer `react`, `react-dom` (^19) |
+| `apps/playground`        | private               | the dev app (every site example live, dev-only scenarios, themes and source), unstyled fixture pages driven by Playwright                            | both packages, `examples/react`                                 |
+| `examples/react`, `site` | private               | the site's examples (the embed app) and pages, exported for fragiola.com                                                                             |                                                                 |
 
 ## Non-negotiable rules
 
@@ -49,8 +49,8 @@ an implementation detail.
    @fragiola/dnd-react               shared core: drag space, collision, events, auto-scroll, DragOverlay, types
        ├── /draggable                Draggable, DragHandle, useDraggable (and the pointer and keyboard sensors)
        ├── /droppable                Droppable, useDroppable
-       ├── /sortable                 (next Epic)
-       └── /swappable                (next Epic)
+       ├── /sortable                 Sortable, SortableGroup, useSortable, the strategies and helpers (S2)
+       └── /swappable                Swappable, useSwappable, the helpers (S3)
    ```
 
    Each subpath exists in both packages: `@fragiola/dnd/draggable` holds the logic, and
@@ -171,6 +171,96 @@ an implementation detail.
     text, the look of overlays and placeholders, and the Dockable and Grid Layout glue all belong
     to the examples (`_kit`), never to a package.
 
+### Sortable and swappable (Epic #6)
+
+These are the decisions of Epic #6, on top of D1–D14, which still hold.
+
+1. **Entries (S1).** `./sortable` and `./swappable` exist in both packages, with D3's shape (an
+   `exports` and a `publishConfig.exports` entry, a tsdown entry, `export *` of the core entry in
+   the React one) and D13's size checks. Each imports only the shared core, never `draggable`,
+   `droppable` or the other: what a drag source needs (its registration, the pointer and keyboard
+   sensors, the operation, the writer and `restRect`) lives in `packages/core/src/core`
+   (`source.ts` is the draggable's old registration, now shared), and in React the
+   `useSource` hook, the handle link and `DragHandle` live outside the capability folders. The
+   guard and both bundle tests check it: only `Sortable` ships no swappable, draggable-only or
+   droppable code, and only `Swappable` none of sortable, draggable-only or droppable.
+2. **Sortable (S2).** `registerSortable(element, { id, index, group, scope?, accepts?, strategy?,
+   handle?, translate?, onSortStart?, onSortOver?, onSortEnd?, … })` in the core,
+   `Sortable`/`useSortable` in React. Items of one `group` (in the space's `scope`) are one list,
+   ordered by `index` (its place, from 0); a list needs no wrapper. `SortableGroup`
+   (`registerSortableGroup`, a cloned child, optional) marks a group's container: needed only to
+   sort into an empty group, or to a container's end.
+   - **A sort is a drop on a group.** When an item's drag starts, every group of its scope becomes
+     a drop target of that drag, an entry in the space whose id is the group's name (removed when
+     the drag ends: `get("droppable-ids")` lists them only during a sort). So the middleware sees a
+     sort exactly as a drop: `ctx.payload` is `{ draggableId: <item id>, droppableId: <group> }`,
+     `ctx.target.data` is the `SortableGroup`'s `data`, a dry run when the target group changes and
+     the real one on release; a veto puts the preview back home and the drop reports `to = from`.
+     `can`/`check("drop")` know a group only during a sort, and answer for the item asked about. A
+     plain `Droppable` of the scope under the pointer still takes the item (the list goes back to
+     rest, `to = from`), unless an accepting group's box under the pointer is smaller (a droppable
+     around a list leaves its sort alone). A disabled group is never sorted into nor within, but
+     its items may leave it for an accepting group. A group name
+     shares the id space of the scope's droppables: keep them distinct.
+   - **Across groups.** The target decides, as a droppable's `accepts` does: a group takes items of
+     another group when one of its members (an item or its `SortableGroup`) lists that group in
+     `accepts` (or its predicate takes the item); two-way moves list each other. A refusing group is
+     never entered: over it the preview stays where it was.
+   - **The preview is `translate` shifts written by the core** on the shifted items (the CSS
+     property, never `transform`), from each item's box at rest: never a DOM move (so no
+     `lostpointercapture` from a re-parenting), never a React render, once per frame at most and
+     only when the preview changes. The source follows the pointer as a draggable does; with
+     `translate={false}` (a `DragOverlay` shows it) it is shifted to where it lands, as a
+     placeholder. Boxes at rest are measured without the shifts (`restRect`: the computed
+     `translate`, so even mid-way through the app's transition), at the start and after a scroll
+     or resize, so the index never feeds back on itself and auto-scroll re-measures without a jump.
+     The app commits on `onSortEnd` (`{ id, from: { group, index }, to: { group, index }, canceled
+     }`, `to` being exactly what the preview showed); the core clears the shifts after the app's
+     callbacks and the page's listeners, so the app's new order never shows a jump.
+   - **Strategies** are pure (`{ index(input), shifts(input) }` over the group's boxes at rest),
+     each its own export: `verticalList` (the default), `horizontalList` (RTL flows from the right)
+     and `grid` (reading order, RTL aware). Over an item, the source takes its place (from another
+     group: before or after it, by its half); between items, the place does not change. The grid's
+     hysteresis: an item of another row than the current place must hold the probe a quarter of its
+     height inside it. Lists take items of any size (they flow with the gaps at rest); the grid
+     moves items to their new place's corner, so it suits items of one size best.
+   - **Keyboard:** always the "targets" mode, over the group's slots: the arrows move one slot
+     (forward is down or toward the inline end), on into the next accepting group in reading order
+     past a group's end, Space or Enter drops, Escape cancels and restores every shift. Every
+     targets-mode step (a sortable's slot, a swap target, a draggable's droppable: the shared
+     keyboard sensor) scrolls its destination into view within its scroll containers, the least
+     that shows it (`reveal`, `block: "nearest"`-like, instant unless the app's CSS asks for
+     `scroll-behavior: smooth`), the pointer following it, and measures again at once.
+   - **Helpers:** `arrayMove(list, from, to)` and `moveBetween(lists, event)` (a record of lists by
+     group), pure: they never mutate their input, and return it unchanged when nothing moves.
+3. **Swappable (S3).** `registerSwappable(element, { id, index, group, accepts?, … , onSwap? })` and
+   `Swappable`/`useSwappable`. A swappable item is a draggable and a drop target of its space:
+   hovering an item of a group that accepts the source's (its own always) shifts only that target
+   into the source's place (corners on the inline start) and marks it `data-dnd-swap-target`.
+   `onSwap({ source, target?, canceled })`, each `{ id, group, index }` (`index` is required so the
+   helpers stay pure); no target when it was dropped over none (or a veto). An item is never a
+   target of its own drag (the arrows count from its place, and back to it is no swap). The middleware sees
+   `{ draggableId: <source>, droppableId: <target> }`, and `can("drop")` answers at any time. The
+   keyboard picks targets in reading order. Helpers: `swapItems(list, a, b)` and
+   `swapBetween(lists, event)`.
+4. **Animation is the app's (S4).** The core writes the shift values; the app adds `transition:
+   translate …` in its CSS, best scoped to `[data-dnd-sorting]` so the drop (the app's new order and
+   the cleared shifts in one frame) never animates. There are no built-in drop animations.
+   **Scroll anchoring:** a sortable container whose children shift should set `overflow-anchor:
+   none` in the app's CSS (Firefox anchors on a shifted child and scrolls it back when the shift is
+   cleared, E4); the packages ship no CSS, so it is documented, not set.
+5. **Size targets (S5)** (min + gzip, React entry, on top of the shared core): `sortable` ≤ 2.5 KB,
+   `swappable` ≤ 1.5 KB. `pnpm size` lists both entries, alone and over the draggable and droppable
+   ones (their drag machinery is shared). A miss is reported with its reason; it is not a stop.
+
+**State attributes they add** (D7's rules: present or absent, namespaced): `data-dnd-part="sortable"`
+(with `data-dnd-id`), `"sortable-group"` (with `data-dnd-id="<group>"`) and `"swappable"` (with
+`data-dnd-id`); `data-dnd-dragging` and `data-dnd-disabled` as a draggable's; **`data-dnd-sorting`**
+on every item (and `SortableGroup`) of a group taking part in a sort in progress, the source's and
+the accepting ones' (rendered by React at the sort's start and end only); **`data-dnd-swap-target`**
+on the item a swap would exchange with, **written by the core** with its shift (React never
+renders it, so a swap preview commits nothing).
+
 Nothing is published yet: no npm release, no Changesets, no GitHub Actions workflow, no www
 registration, until the maintainer validates the library.
 
@@ -220,9 +310,14 @@ and the source beside the stage; the state is in the URL
 - **Scenarios** (`src/scenarios/<area>/<id>.tsx`) are dev-only and never shipped: one file each,
   a default export only, grouped by area (`drag`, `drop`, `keyboard`, `interop`, `api`). The Grid
   Layout integrations live here, behind the `../grid-layout` alias (D12).
+- **Dockable popouts** open `public/popout.html` (an empty page Dockable fills); the
+  `interop/dockable-popout-sortable` scenario and its e2e drive the popout window.
 - **Fixtures** (`fixtures/<name>/`) are the unstyled pages Playwright drives; the sidebar links
   them. `basic/` and `rtl/` are one page (`fixtures/fixture.tsx`) in each direction, driven by one
-  spec (`e2e/fixture.spec.ts`; `e2e/fixture.touch.spec.ts` on a phone).
+  spec (`e2e/fixture.spec.ts`; `e2e/fixture.touch.spec.ts` on a phone); `sortable/` and
+  `sortable-rtl/` are the sortable and swappable page (`fixtures/sortable.tsx`,
+  `e2e/sortable.spec.ts`, `e2e/sortable.touch.spec.ts`). Both mount through `fixtures/mount.tsx`
+  (StrictMode and the render counter).
 - **Grid Layout** is found by `siblings.ts`, walking up from the playground to the first folder
   holding `grid-layout` (the checkout may be a worktree), and aliased to its sources in
   `vite.config.ts` and `vitest.config.ts`. Absent (or with `DND_GRID_LAYOUT=off`), both names
@@ -285,8 +380,10 @@ Every wrapper follows the same rules (D6, D7). Tests enforce them; keep it that 
   the `ref` given to the wrapper and the child's own `ref` all receive the element.
 - **A wrapper forwards what is not its option** to the element, so a wrapper is itself a valid
   child and wrappers stack (`<Droppable><Draggable><Card /></Draggable></Droppable>`).
-- **No context, even for a handle**: a `DragHandle` finds its draggable through the DOM (the
-  closest `[data-dnd-part~="draggable"]`), whichever side attaches first.
+- **No context, even for a handle**: a `DragHandle` finds its drag source through the DOM (the
+  closest `[data-dnd-part~="draggable"]`, `~="sortable"` or `~="swappable"`), whichever side
+  attaches first. It is a shared part (`packages/react/src/DragHandle.tsx`), re-exported by each
+  drag source's entry (`/draggable`, `/sortable`, `/swappable`), never by the main one.
 - **Development checks** (`process.env.NODE_ENV !== "production"`, written literally so the app's
   bundler drops them): no child, several children, a fragment or text throw; a child that never
   attaches the ref, and a handle outside a draggable, are reported with `console.error` after

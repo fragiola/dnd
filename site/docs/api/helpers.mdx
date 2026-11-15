@@ -1,0 +1,77 @@
+---
+title: Helpers
+description: The pure functions that apply a sort or a swap to your own lists. They never mutate their input, and return it unchanged when nothing moves.
+---
+
+The packages report what moved where and never reorder your state themselves. These helpers
+apply a report to your lists. They are pure: they never mutate their input (they are tested on
+frozen arrays), and they return new arrays, or the input itself when nothing moves, so a state
+setter given the result renders nothing.
+
+| helper | entry | applies |
+| --- | --- | --- |
+| `arrayMove(list, from, to)` | `/sortable` | a move within one list |
+| `moveBetween(lists, event)` | `/sortable` | an `onSortEnd` to a record of lists by group |
+| `swapItems(list, a, b)` | `/swappable` | a swap within one list |
+| `swapBetween(lists, event)` | `/swappable` | an `onSwap` to a record of lists by group |
+
+## arrayMove
+
+```ts title="move.ts"
+import { arrayMove } from "@fragiola/dnd-react/sortable";
+
+arrayMove(["a", "b", "c", "d"], 0, 2); // ["b", "c", "a", "d"]
+```
+
+`list` with the item at `from` moved to `to`, as a new array. A `from` out of range returns a
+copy.
+
+## moveBetween
+
+```ts title="board.ts"
+import { moveBetween, type SortEndEvent } from "@fragiola/dnd-react/sortable";
+
+const [board, setBoard] = useState({ todo: ["a", "b"], doing: ["c"], done: [] as string[] });
+const onSortEnd = (event: SortEndEvent) => setBoard((now) => moveBetween(now, event));
+```
+
+The lists, one per group, with the move applied: within a group (as `arrayMove`), or out of one
+group into another (removed from `from.group`, inserted at `to.index` in `to.group`, a list
+created when the record has none). It reads `from`, `to` and `canceled` (`SortMove`), so it takes
+the `SortEndEvent` itself. A cancelled move, a move to the same place or a `from` out of range
+returns `lists` itself.
+
+## swapItems
+
+```ts title="swap.ts"
+import { swapItems } from "@fragiola/dnd-react/swappable";
+
+swapItems(["a", "b", "c"], 0, 2); // ["c", "b", "a"]
+```
+
+`list` with the items at `a` and `b` exchanged, as a new array. An index out of range returns a
+copy.
+
+## swapBetween
+
+```ts title="slots.ts"
+import { type SwapEvent, swapBetween } from "@fragiola/dnd-react/swappable";
+
+const onSwap = (event: SwapEvent) => setSlots((now) => swapBetween(now, event));
+```
+
+The lists with the swap applied: within a group, or across two. It reads `source`, `target` and
+`canceled` (`SwapResult`), so it takes the `SwapEvent` itself. A cancelled swap, one with no
+target, an index out of range, or an item swapped with itself returns `lists` itself.
+
+## Types
+
+| type | shape |
+| --- | --- |
+| `SortPosition` | `{ group: string; index: number }` |
+| `SortMove` | `{ from: SortPosition; to: SortPosition; canceled?: boolean }` |
+| `SwapPosition` | `{ group: string; index: number }` |
+| `SwapResult` | `{ source: SwapPosition; target?: SwapPosition; canceled?: boolean }` |
+
+Each helper's lists may hold anything: ids, objects, the rows of your store. The helpers move
+values, never look inside them.

@@ -1,6 +1,6 @@
 ---
 title: With Grid Layout
-description: Drag a card inside a grid item without moving the item, and add an item to the grid with item.add when a card is dropped on it.
+description: Drag or sort cards inside grid items without moving the items, build a kanban whose columns are grid items, and add an item with item.add on a drop.
 ---
 
 dnd composes with [Grid Layout](https://fragiola.com/grid-layout) the same way as with Dockable:
@@ -8,8 +8,8 @@ through the primitives' forwarded props and through Grid Layout's own commands, 
 
 <Callout type="info" title="A local scenario for now">
 Grid Layout is not on npm yet, so this integration is not in the gallery: it is a dev-only
-scenario of this repository's playground (`interop/grid-layout-item`), which resolves Grid
-Layout's sources when its repository sits beside this one. It becomes an example once Grid
+scenario of this repository's playground (`interop/grid-layout-item` and
+`interop/grid-layout-kanban`), which resolves Grid Layout's sources when its repository sits beside this one. It becomes an example once Grid
 Layout is published.
 </Callout>
 
@@ -60,3 +60,56 @@ const gridLayoutRef = useGridLayoutRef();
 
 The playground's e2e checks both: the grid item stays where it was while its card drags, and the
 drop adds an item.
+
+## A kanban of grid items
+
+The columns of a board can be `GridLayout.Item`s, so the reader arranges and resizes the
+columns, while the cards inside them sort and move between columns. A card's press is claimed by
+dnd on `pointerdown`, so dragging a card never drags its grid item; dragging the item's own
+header (anything outside a card) still moves the column.
+
+```tsx title="board.tsx"
+import { DragOverlay } from "@fragiola/dnd-react";
+import { moveBetween, Sortable, SortableGroup } from "@fragiola/dnd-react/sortable";
+import { GridLayout } from "@fragiola/grid-layout-react";
+
+<GridLayout.Root defaultLayout={columns}>
+    <GridLayout.Items>
+        {(item) => (
+            <GridLayout.Item itemId={item.id}>
+                <h3>{item.id}</h3>
+                <SortableGroup group={item.id} accepts={COLUMNS}>
+                    <ul className="cards">
+                        {board[item.id].map((id, index) => (
+                            <Sortable
+                                key={id}
+                                id={id}
+                                index={index}
+                                group={item.id}
+                                accepts={COLUMNS}
+                                translate={false}
+                                onSortEnd={(event) => setBoard((now) => moveBetween(now, event))}
+                            >
+                                <li>{id}</li>
+                            </Sortable>
+                        ))}
+                    </ul>
+                </SortableGroup>
+            </GridLayout.Item>
+        )}
+    </GridLayout.Items>
+</GridLayout.Root>;
+
+<DragOverlay>{(operation) => <div className="card lifted">{operation.source.id}</div>}</DragOverlay>;
+```
+
+Each grid item is its own stacking context, so a card moved by its own `translate` into the next
+column would paint under that column. Here the card stays in its list as the placeholder
+(`translate={false}`, shifted by the core to where it lands) and a `DragOverlay` carries its copy
+above the grid.
+
+The cards' shifts are their own `translate`, and the grid places its items with `transform`: the
+two never meet. The rects of a sort are measured when it starts, so a column the reader moved or
+resized before the drag sorts at its new place. The playground's `interop/grid-layout-kanban`
+scenario and its e2e check that a card sorts within a column and moves to another while every
+grid item keeps its place.

@@ -1,0 +1,78 @@
+---
+title: Swappable items
+description: Drag an item onto another to exchange their places. Only the target moves in the preview, and your state applies the swap with a pure helper.
+---
+
+A swappable item is both a drag source and a drop target. Drag it over another item of its group
+(or of a group that accepts it) and the two swap: nothing else moves. Like a sortable list, the
+items need no wrapper around them.
+
+```tsx title="tiles.tsx"
+import { Swappable, swapItems } from "@fragiola/dnd-react/swappable";
+
+const [tiles, setTiles] = useState(["a", "b", "c", "d"]);
+
+<div className="board">
+    {tiles.map((id, index) => (
+        <Swappable
+            key={id}
+            id={id}
+            index={index}
+            group="tiles"
+            onSwap={(event) => {
+                if (event.target) setTiles((now) => swapItems(now, event.source.index, event.target.index));
+            }}
+        >
+            <div className="tile">{id}</div>
+        </Swappable>
+    ))}
+</div>;
+```
+
+<Example id="swap-grid" />
+
+## The preview
+
+Hovering another item that would take the drag previews the swap: the core moves **only that
+target** into the source's place, by its `translate` (its inline-start top corner onto the
+source's), and marks it `data-dnd-swap-target`. Both are written by the core, so a swap preview
+never renders React. The dragged item follows the pointer; with `translate={false}` (a
+[`DragOverlay`](/docs/api/drag-overlay) shows it), it is moved into the target's place instead, so
+the two visibly exchange.
+
+## The swap event
+
+`onSwap` fires once when the drag ends:
+
+```ts title="swap-event.ts"
+interface SwapEvent {
+    type: "swap";
+    source: { id; group; index };
+    target?: { id; group; index }; // none: dropped over no item, or vetoed
+    canceled: boolean;
+    operation: DragOperation;
+    input: "pointer" | "keyboard";
+}
+```
+
+Apply it with [`swapItems`](/docs/api/helpers#swapitems) within a list, or
+[`swapBetween`](/docs/api/helpers#swapbetween) for a record of lists. Both return your lists
+unchanged when there is no target or the swap was cancelled. `index` is required on every item,
+so the helpers stay pure: they never search your lists by id.
+
+## Across groups
+
+An item swaps with the items of its own group always, and with another group's items when the
+target's group accepts the source's (`accepts`, a list of group names or a predicate). See
+[groups](/docs/concepts/groups).
+
+## Rules and the keyboard
+
+The drop middleware sees a swap as a drop of the source on the target:
+`{ draggableId: <source>, droppableId: <target> }`, as a dry run on each hover and for real on
+release. A veto puts the target back and the swap reports no target. Since every swappable item
+is always a drop target of its space, `can("drop", …)` answers at any time.
+
+By keyboard, Space or Enter grabs an item, the arrows choose the swap target in reading order,
+counting from the item's own place (back to it is no swap), Space or Enter swaps, and Escape
+cancels.
