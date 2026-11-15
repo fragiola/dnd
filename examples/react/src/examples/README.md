@@ -20,17 +20,16 @@ The gallery groups examples by the feature they show (`CATEGORIES` in `meta-type
 order; the site export contract calls a category a `level`). An example belongs where a reader
 looking for its feature would search, and `order` is its place inside the category.
 
-| category             | what belongs in it                                                                         |
-| -------------------- | ------------------------------------------------------------------------------------------ |
-| `getting-started`    | the first drags: a draggable and a droppable with no provider, the bare wrappers           |
-| `draggable`          | the dragged side: handles, controls that never drag, activation, `render`                  |
-| `droppable`          | the drop side: `accepts`, scopes, collision strategies, refused drops                      |
-| `keyboard`           | grabbing, moving and dropping without a pointer, and what the app announces                |
-| `overlay-and-scroll` | `DragOverlay` out of clipped containers, auto-scroll, several scroll containers            |
-| `mobile`             | touch: the delay activation, page scrolling kept                                           |
-| `interop`            | dnd with the family: inside Dockable panels and popouts, onto a tabset, inside a grid item |
-| `styling`            | how a drag looks when it is not about one feature: the lift, the placeholder, RTL          |
-| `apps`               | several features together, as an app would put them: a kanban board, a file tray           |
+| category             | what belongs in it                                                                                                                 |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `getting-started`    | the first drags: a draggable and a droppable with no provider, the bare wrappers                                                   |
+| `draggable`          | the dragged side: handles, controls that never drag, activation, `render`                                                          |
+| `droppable`          | the drop side: `accepts`, scopes, collision strategies, refused drops                                                              |
+| `keyboard`           | grabbing, moving and dropping without a pointer, and what the app announces                                                        |
+| `overlay-and-scroll` | `DragOverlay` out of clipped containers, auto-scroll, several scroll containers                                                    |
+| `mobile`             | touch: the delay activation, page scrolling kept                                                                                   |
+| `interop`            | dnd with the family: inside Dockable panels, onto a tabset (Grid Layout's integration is a playground scenario until it is on npm) |
+| `styling`            | how a drag looks when it is not about one feature: the lift, the placeholder, RTL                                                  |
 
 ## Adding an example
 
@@ -69,6 +68,8 @@ theme's CSS, and nothing else.
 
 ## Rules
 
+- **No provider, shown**: the examples never wrap their draggables and droppables in anything of
+  the package's: each wrapper sits where its element is.
 - **Copyable imports only**: `react`, `@fragiola/dnd-react` (it re-exports the core) and its
   capability entries (`/draggable`, `/droppable`), `@fragiola/dockable-react` for the integrations,
   `lucide-react`, Fragiola UI (`#/components/ui/*`, `#/components/atoms/*`, `#/lib/cn`), and

@@ -75,6 +75,9 @@ importers:
       '@fragiola/dnd-react':
         specifier: workspace:*
         version: link:../../packages/react
+      '@fragiola/dockable-react':
+        specifier: 0.2.0
+        version: 0.2.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       clsx:
         specifier: 2.1.1
         version: 2.1.1

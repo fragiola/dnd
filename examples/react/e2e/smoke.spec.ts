@@ -6,10 +6,17 @@ import { collectErrors, EXAMPLES, openExample, reset, THEMES } from "./helpers";
 // themes.spec.ts), so every theme runs on a representative set, not on every example.
 // `E2E_ALL_THEMES=1` runs every example in every theme.
 
-// Empty until the examples land (Epic #1, the examples issue): each one added here covers
-// something a theme can break (cards and the placeholder, a handle, an overlay, RTL, …).
+// Each covers something a theme can break: cards and zones, a handle, an overlay portalled into
+// the body, RTL, the lift and the zone states, Dockable's parts.
 /** Examples run in every theme, chosen so that together they cover what a theme can break. */
-const REPRESENTATIVE: string[] = [];
+const REPRESENTATIVE: string[] = [
+    "hello-dnd",
+    "drag-handle",
+    "drag-overlay",
+    "rtl",
+    "styling-showcase",
+    "dockable-new-tab",
+];
 
 const slugs = new Set(EXAMPLES.map((example) => example.slug));
 const missing = REPRESENTATIVE.filter((slug) => !slugs.has(slug));

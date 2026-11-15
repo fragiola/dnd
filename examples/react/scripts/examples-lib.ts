@@ -136,7 +136,7 @@ export function registryItemOf(specifier: string): string | undefined {
 
 /** npm packages an example imports that the consumer installs themselves (not React, not
  * the drag and drop, not a registry item's own dependency). */
-const OWN_PACKAGES = new Set(["lucide-react"]);
+const OWN_PACKAGES = new Set(["lucide-react", "@fragiola/dockable-react"]);
 
 /**
  * The example's files: its index.tsx and everything reachable through relative imports, all
