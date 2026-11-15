@@ -18,6 +18,7 @@
         "react-dom": "19.3.1"
     },
     "devDependencies": {
+        "@fragiola/dockable-react": "0.2.0",
         "@playwright/test": "1.65.0",
         "@tailwindcss/vite": "4.3.5",
         "@types/node": "24.19.2",

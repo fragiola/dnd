@@ -151,10 +151,19 @@ export function scenarioTitle(id: string): string {
     return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
+/**
+ * Whether a scenario can run here: the Grid Layout ones need `../grid-layout` beside this
+ * repository (siblings.ts, D12).
+ */
+export function scenarioAvailable(id: string, gridLayout = __GRID_LAYOUT__) {
+    return gridLayout || !id.startsWith("interop/grid-layout");
+}
+
 // A file outside an area's directory is not listed; tests/scenarios.test.ts fails on it instead.
 const scenarioEntries: Entry[] = Object.entries(scenarioModules)
     .flatMap(([key, load]) => {
         const path = scenarioPath(key);
+        if (path && !scenarioAvailable(`${path.area}/${path.id}`)) return [];
         const area = AREAS.find((a) => a.key === path?.area);
         const source = scenarioSources[key];
         if (!path || !area || !source) return [];

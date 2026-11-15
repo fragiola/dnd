@@ -2,11 +2,12 @@ import { existsSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
-import { defineConfig } from "vite";
+import { type Alias, defineConfig, searchForWorkspaceRoot } from "vite";
 import {
     examplesResolve,
     prePaintTheme,
 } from "../../examples/react/vite.shared.ts";
+import { siblings } from "./siblings.ts";
 
 const root = import.meta.dirname;
 // 5173 is Playwright's (playwright.config.ts); PLAYGROUND_PORT moves both, e.g. when another
@@ -31,19 +32,33 @@ function pages(dir: string): Record<string, string> {
 // wiring: the `#/` alias, one React, the source export condition in dev (the core and React
 // sources hot-reload; the build uses `dist`) and the pre-paint theme. It is never deployed;
 // `build` exists so CI catches a playground that no longer compiles.
-export default defineConfig(({ command }) => ({
-    // Tailwind is an app concern only (the shell and the examples); no package depends on it.
-    // The stage is rendered by React: the pre-paint script sets only the scheme on <html>.
-    plugins: [react(), tailwindcss(), prePaintTheme()],
-    resolve: examplesResolve(command),
-    server: { port, strictPort: true },
-    preview: { port, strictPort: true },
-    build: {
-        rollupOptions: {
-            input: {
-                index: resolve(root, "index.html"),
-                ...pages("fixtures"),
+// The dev-only interop scenarios reach Grid Layout's sources beside this repository when they are
+// there (siblings.ts, D12): never a dependency.
+export default defineConfig(({ command }) => {
+    const sibling = siblings();
+    const resolved = examplesResolve(command);
+    return {
+        // Tailwind is an app concern only (the shell and the examples); no package depends on it.
+        // The stage is rendered by React: the pre-paint script sets only the scheme on <html>.
+        plugins: [react(), tailwindcss(), prePaintTheme()],
+        resolve: {
+            ...resolved,
+            alias: [...((resolved?.alias ?? []) as Alias[]), ...sibling.alias],
+        },
+        define: sibling.define,
+        server: {
+            port,
+            strictPort: true,
+            fs: { allow: [searchForWorkspaceRoot(root), ...sibling.allow] },
+        },
+        preview: { port, strictPort: true },
+        build: {
+            rollupOptions: {
+                input: {
+                    index: resolve(root, "index.html"),
+                    ...pages("fixtures"),
+                },
             },
         },
-    },
-}));
+    };
+});

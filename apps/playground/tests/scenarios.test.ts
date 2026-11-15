@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
     AREAS,
     entries,
+    scenarioAvailable,
     scenarioPath,
     scenarioTitle,
     sections,
@@ -68,6 +69,7 @@ describe("src/scenarios", () => {
     it("lists every scenario in the catalog, grouped by area in AREAS order", async () => {
         const files = (await scenarioFiles())
             .map(({ area, file }) => `${area}/${file.slice(0, -4)}`)
+            .filter((id) => scenarioAvailable(id))
             .sort();
         const listed = entries
             .filter((e) => e.kind === "scenario")
@@ -101,6 +103,18 @@ describe("scenario areas", () => {
             "interop",
             "api",
         ]);
+    });
+});
+
+describe("scenario availability", () => {
+    it("lists the Grid Layout scenarios only with ../grid-layout beside the repository", () => {
+        expect(scenarioAvailable("interop/grid-layout-item", false)).toBe(
+            false,
+        );
+        expect(scenarioAvailable("interop/grid-layout-item", true)).toBe(true);
+        expect(scenarioAvailable("interop/dockable-panel-move", false)).toBe(
+            true,
+        );
     });
 });
 
