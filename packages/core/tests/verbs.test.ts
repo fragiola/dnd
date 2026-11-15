@@ -64,6 +64,19 @@ describe("the drag space's verbs", () => {
         expect(element.style.translate).toBe("");
     });
 
+    it("checks a drop against the droppable of the source's scope when ids repeat across scopes", () => {
+        const space = getDragSpace(document);
+        droppable({ id: "todo", scope: "board-1" }, LEFT);
+        droppable({ id: "todo", scope: "board-2" }, RIGHT);
+        draggable({ id: "card", scope: "board-2" });
+        expect(
+            space.check("drop", { draggableId: "card", droppableId: "todo" }),
+        ).toEqual({
+            ok: true,
+            value: { draggableId: "card", droppableId: "todo" },
+        });
+    });
+
     it("can and checks a drop through accepts, scope and the middleware, as a dry run", () => {
         const space = getDragSpace(document);
         droppable({ id: "photos", accepts: ["photo"] }, LEFT);

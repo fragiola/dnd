@@ -168,8 +168,25 @@ function makeSpace(doc: Document, entries?: Set<DragEntry>): DragSpace {
         },
         can: (key, payload) => space.check(key, payload).ok,
         check(_key, payload) {
-            const source = find("draggable", payload.draggableId);
-            const target = find("droppable", payload.droppableId);
+            // ids are unique within a scope only: the pair that shares one, if any
+            const all = entriesOf(space);
+            const of = <Kind extends DragEntry["kind"]>(
+                kind: Kind,
+                id: unknown,
+            ) =>
+                all.filter(
+                    (entry): entry is Extract<DragEntry, { kind: Kind }> =>
+                        entry.kind === kind && entry.id() === id,
+                );
+            const sources = of("draggable", payload.draggableId);
+            const targets = of("droppable", payload.droppableId);
+            const source =
+                sources.find((each) =>
+                    targets.some((other) => other.scope() === each.scope()),
+                ) ?? sources[0];
+            const target =
+                targets.find((each) => each.scope() === source?.scope()) ??
+                targets[0];
             if (!source || !target)
                 return fail("not_found", "No such draggable or droppable.");
             if (
