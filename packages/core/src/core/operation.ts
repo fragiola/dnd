@@ -1,0 +1,286 @@
+// The drag lifecycle (D5, D8): one operation per space. It measures at the start and again after
+// a scroll or a resize (never per frame), runs the collision, tells the droppables they are
+// entered, hovered and left, reports the events and writes the source's `translate`, all once
+// per animation frame through the document's `defaultView`. A drop runs the app's callbacks
+// first, and only then clears `translate` and the states.
+import type { AutoScroll } from "./auto-scroll";
+import { pointerWithin } from "./collision";
+import { listen, measure } from "./dom";
+import {
+    type ActiveSession,
+    type DragSpace,
+    type DroppableEntry,
+    type Entry,
+    emit,
+    entriesOf,
+    stateOf,
+} from "./space";
+import type {
+    CollisionCandidate,
+    CollisionStrategy,
+    DragEventType,
+    DragInput,
+    DragOperation,
+    DragPhase,
+    DragSource,
+    DragSpaceEvent,
+    DroppableEventType,
+    Point,
+    Rect,
+} from "./types";
+import { createWriter } from "./writer";
+
+/** A draggable, as the operation drives it. @internal */
+export interface SourceEntry extends Entry {
+    source(): DragSource;
+    scope(): string;
+    collision(): CollisionStrategy | undefined;
+    autoScroll(): AutoScroll | undefined;
+    /** whether the source itself follows the pointer (`translate`) */
+    translate(): boolean;
+    /** the draggable's own callbacks */
+    emit(event: DragSpaceEvent): void;
+    dragging(on: boolean): void;
+}
+
+/** A measured droppable of the operation's scope. @internal */
+export interface Candidate extends CollisionCandidate {
+    readonly entry: DroppableEntry;
+    readonly accepted: boolean;
+}
+
+/** The operation in progress, as its sensor drives it. @internal */
+export interface Session extends ActiveSession {
+    operation: DragOperation;
+    /** the pointer moved: the next frame follows it */
+    move(pointer: Point): void;
+    drop(): void;
+    /** the droppables that accept the source, as measured */
+    targets(): readonly Candidate[];
+    /** the droppable under the drag after the last frame */
+    hovered(): Candidate | undefined;
+    /** runs `cleanup` once the operation ended, after the app's callbacks (now, if it has) */
+    onEnd(...cleanup: (() => void)[]): void;
+}
+
+const isDroppable = (entry: Entry): entry is DroppableEntry =>
+    "droppable" in entry;
+
+/**
+ * Starts a drag of `entry` in `space` from `origin`, or nothing when one is in progress there.
+ * @internal
+ */
+export function startDrag(
+    space: DragSpace,
+    entry: SourceEntry,
+    origin: Point,
+    input: DragInput,
+): Session | undefined {
+    const state = stateOf(space);
+    if (state.session) return undefined;
+    const doc = space.document;
+    const view = doc.defaultView;
+    const element = entry.element;
+    const scope = entry.scope();
+    const source = entry.source();
+    const writer = entry.translate() ? createWriter(element) : undefined;
+    const scroller = entry.autoScroll()?.start(element);
+    const start = measure(element);
+    /** the source's box now, without its `translate` (it moves when its container scrolls) */
+    let base: Rect = start;
+    let pointer = origin;
+    let accepting: Candidate[] = [];
+    let refusing: Candidate[] = [];
+    let hovered: Candidate | undefined;
+    let target: Candidate | undefined;
+    /** the droppables met, and whether each accepts the source (asked once) */
+    const met = new Map<DroppableEntry, boolean>();
+    // measured again on the first frame too: the app's render of the drag start (placeholders,
+    // active droppables) may have moved things
+    let dirty = true;
+    let frameId: number | undefined;
+    let done = false;
+    let ended = false;
+    const cleanups: (() => void)[] = [];
+
+    function collect(): void {
+        const next: Candidate[] = [];
+        const refused: Candidate[] = [];
+        for (const other of entriesOf(space)) {
+            if (
+                !isDroppable(other) ||
+                other.scope() !== scope ||
+                other.disabled()
+            )
+                continue;
+            let accepted = met.get(other);
+            if (accepted === undefined) {
+                accepted = other.accepts(source);
+                met.set(other, accepted);
+                other.start(accepted);
+            }
+            (accepted ? next : refused).push({
+                id: other.id(),
+                rect: measure(other.element),
+                entry: other,
+                accepted,
+            });
+        }
+        // gone or disabled since: back to rest, and no longer hovered
+        for (const other of met.keys()) {
+            if (
+                next.some((candidate) => candidate.entry === other) ||
+                refused.some((candidate) => candidate.entry === other)
+            )
+                continue;
+            met.delete(other);
+            other.end();
+            if (hovered?.entry === other) hovered = undefined;
+        }
+        accepting = next;
+        refusing = refused;
+    }
+
+    function snapshot(phase: DragPhase, delta: Point, drag: Rect) {
+        return {
+            phase,
+            scope,
+            source,
+            target: target && { id: target.id, data: target.entry.data() },
+            pointer,
+            delta,
+            rects: { source: start, drag, target: target?.rect },
+            input,
+        };
+    }
+
+    function event<Type extends DragEventType | DroppableEventType>(
+        type: Type,
+    ): DragSpaceEvent<Type> {
+        return { type, operation: session.operation, input };
+    }
+
+    function send(type: DragEventType): DragSpaceEvent<DragEventType> {
+        const sent = event(type);
+        entry.emit(sent);
+        emit(space, sent);
+        return sent;
+    }
+
+    function frame(): void {
+        if (frameId !== undefined) view?.cancelAnimationFrame(frameId);
+        frameId = undefined;
+        if (dirty) {
+            dirty = false;
+            collect();
+            const now = measure(element);
+            base = {
+                ...now,
+                x: now.x - (writer?.x ?? 0),
+                y: now.y - (writer?.y ?? 0),
+            };
+        }
+        const delta = { x: pointer.x - origin.x, y: pointer.y - origin.y };
+        const drag = { ...start, x: start.x + delta.x, y: start.y + delta.y };
+        const collide = entry.collision() ?? pointerWithin;
+        // an accepting droppable first (a column around a card that refuses the drag), a refused
+        // one only to mark it refused
+        const hit =
+            collide({ pointer, dragRect: drag, droppables: accepting }) ??
+            collide({ pointer, dragRect: drag, droppables: refusing });
+        const before = target;
+        target = hit?.accepted ? hit : undefined;
+        session.operation = snapshot("dragging", delta, drag);
+        if (hit?.entry !== hovered?.entry) {
+            hovered?.entry.hover(
+                "drag-leave",
+                event("drag-leave"),
+                hovered.accepted,
+            );
+            hovered = hit;
+            hit?.entry.hover("drag-enter", event("drag-enter"), hit.accepted);
+        } else if (hit) {
+            hit.entry.hover("drag-over", event("drag-over"), hit.accepted);
+        }
+        if (target?.entry !== before?.entry) send("drag-over");
+        send("drag-move");
+        scroller?.move(pointer);
+        // under the pointer wherever its container scrolled to
+        writer?.write(start.x - base.x + delta.x, start.y - base.y + delta.y);
+    }
+
+    function schedule(): void {
+        if (done || frameId !== undefined) return;
+        if (view) frameId = view.requestAnimationFrame(frame);
+        else frame();
+    }
+
+    function runCleanups(): void {
+        for (const cleanup of cleanups.splice(0)) cleanup();
+    }
+
+    function finish(): void {
+        if (frameId !== undefined) view?.cancelAnimationFrame(frameId);
+        frameId = undefined;
+        scroller?.stop();
+        writer?.clear();
+        state.session = undefined;
+        for (const other of met.keys()) other.end();
+        entry.dragging(false);
+        ended = true;
+        runCleanups();
+    }
+
+    const session: Session = {
+        entry,
+        operation: snapshot("dragging", { x: 0, y: 0 }, start),
+        onEnd(...cleanup) {
+            cleanups.push(...cleanup);
+            if (ended) runCleanups();
+        },
+        move(next) {
+            if (done || (next.x === pointer.x && next.y === pointer.y)) return;
+            pointer = next;
+            schedule();
+        },
+        invalidate() {
+            if (done) return;
+            dirty = true;
+            schedule();
+        },
+        targets: () => accepting,
+        hovered: () => hovered,
+        drop() {
+            if (done) return;
+            if (frameId !== undefined) frame();
+            done = true;
+            session.operation = { ...session.operation, phase: "dropping" };
+            const dropped = event("drop");
+            // a refused hover never reports a drop (D5)
+            if (target && met.has(target.entry)) target.entry.drop(dropped);
+            entry.emit(dropped);
+            emit(space, dropped);
+            finish();
+        },
+        cancel() {
+            if (done) return;
+            done = true;
+            session.operation = { ...session.operation, phase: "idle" };
+            send("drag-cancel");
+            finish();
+        },
+    };
+    state.session = session;
+    collect();
+    session.onEnd(
+        listen(doc, "scroll", session.invalidate, {
+            capture: true,
+            passive: true,
+        }),
+    );
+    if (view) session.onEnd(listen(view, "resize", session.invalidate));
+    entry.dragging(true);
+    send("drag-start");
+    schedule();
+    return session;
+}

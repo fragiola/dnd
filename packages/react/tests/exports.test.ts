@@ -29,6 +29,6 @@ describe("@fragiola/dnd-react", () => {
                 expect(name in react, name).toBe(false);
             }
         }
-        expect(react.VERSION).toBe("0.0.0");
+        expect(typeof react.getDragSpace).toBe("function");
     });
 });
