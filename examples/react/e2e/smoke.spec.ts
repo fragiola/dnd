@@ -16,6 +16,9 @@ const REPRESENTATIVE: string[] = [
     "rtl",
     "styling-showcase",
     "dockable-new-tab",
+    "kanban",
+    "swap-grid",
+    "sortable-dockable",
 ];
 
 const slugs = new Set(EXAMPLES.map((example) => example.slug));

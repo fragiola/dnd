@@ -118,3 +118,53 @@ export function limitTabs(model: Model<NoteTypes>, max = MAX_TABS): () => void {
         return next();
     });
 }
+
+/** Two tabsets for the sortable lists (the playlist and the queue), and a note between them. */
+export function playlistLayout(): LayoutJson<NoteTypes> {
+    return {
+        version: 1,
+        root: {
+            type: "row",
+            children: [
+                {
+                    type: "tabset",
+                    id: "start",
+                    children: [
+                        {
+                            id: "playlist",
+                            component: "note",
+                            label: "Playlist",
+                            data: { text: "" },
+                        },
+                    ],
+                },
+                {
+                    type: "tabset",
+                    id: "middle",
+                    children: [
+                        {
+                            id: "about",
+                            component: "note",
+                            label: "About",
+                            data: {
+                                text: "Sort the playlist, or drag a song into the queue. Then move the Playlist tab (with the button, or by dragging the tab) and sort again: the list keeps working.",
+                            },
+                        },
+                    ],
+                },
+                {
+                    type: "tabset",
+                    id: "end",
+                    children: [
+                        {
+                            id: "queue",
+                            component: "note",
+                            label: "Queue",
+                            data: { text: "" },
+                        },
+                    ],
+                },
+            ],
+        },
+    };
+}

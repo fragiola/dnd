@@ -23,7 +23,7 @@ const ALLOWED = [
     /^react-dom$/,
     // the React package re-exports the core (D1): an example never imports @fragiola/dnd; each
     // capability is its own entry (D3)
-    /^@fragiola\/dnd-react(\/(draggable|droppable))?$/,
+    /^@fragiola\/dnd-react(\/(draggable|droppable|sortable|swappable))?$/,
     // the Dockable integrations (D11, D12): app code in the example, never a package dependency
     /^@fragiola\/dockable-react$/,
     /^lucide-react$/,
