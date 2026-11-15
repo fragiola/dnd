@@ -14,12 +14,12 @@ its own entry, and easy composition with Dockable and Grid Layout.
 
 Other adapters may follow React, so **every piece of logic that isn't rendering lives in the core**.
 
-| package                  | name                  | contains                                                                                                                  | depends on                                                      |
-| ------------------------ | --------------------- | ------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| package                  | name                  | contains                                                                                                                                             | depends on                                                      |
+| ------------------------ | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
 | `packages/core`          | `@fragiola/dnd`       | the shared core (drag space, sensors, collision, events, types) and one entry per capability (`/draggable`, `/droppable`, `/sortable`, `/swappable`) | DOM only, zero runtime deps                                     |
-| `packages/react`         | `@fragiola/dnd-react` | the wrappers and hooks of each capability, re-exporting the core entry by entry: **all a React app installs**             | `@fragiola/dnd` (same version), peer `react`, `react-dom` (^19) |
-| `apps/playground`        | private               | the dev app (every site example live, dev-only scenarios, themes and source), unstyled fixture pages driven by Playwright | both packages, `examples/react`                                 |
-| `examples/react`, `site` | private               | the site's examples (the embed app) and pages, exported for fragiola.com                                                  |                                                                 |
+| `packages/react`         | `@fragiola/dnd-react` | the wrappers and hooks of each capability, re-exporting the core entry by entry: **all a React app installs**                                        | `@fragiola/dnd` (same version), peer `react`, `react-dom` (^19) |
+| `apps/playground`        | private               | the dev app (every site example live, dev-only scenarios, themes and source), unstyled fixture pages driven by Playwright                            | both packages, `examples/react`                                 |
+| `examples/react`, `site` | private               | the site's examples (the embed app) and pages, exported for fragiola.com                                                                             |                                                                 |
 
 ## Non-negotiable rules
 
