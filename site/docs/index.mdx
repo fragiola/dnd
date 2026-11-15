@@ -1,0 +1,40 @@
+---
+title: DnD — headless drag and drop for React
+description: A headless drag and drop for React. Wrappers that render no HTML of their own, no provider, pointer and keyboard; the markup and every pixel are yours.
+layout: landing
+---
+
+<Hero
+    eyebrow="@fragiola/dnd-react · React"
+    title="Drag and drop that wraps what you already render."
+    description="Wrap any element in a Draggable or a Droppable and it drags and drops: no provider, no HTML of its own, no CSS. Mouse, touch, pen and the keyboard go through one path, and each capability is its own import."
+    actions={[
+        { label: "Browse the examples", href: "/examples", variant: "primary" },
+        { label: "GitHub", href: "https://github.com/fragiola/dnd", variant: "ghost" },
+    ]}
+/>
+
+<Features columns={4}>
+<Feature title="No HTML of its own">
+A wrapper merges its props, ref and handlers into the element it wraps, a plain one or any Fragiola
+primitive, and renders nothing else.
+</Feature>
+<Feature title="No provider">
+A draggable in one corner of the tree and a droppable in another find each other through a drag
+space kept per document.
+</Feature>
+<Feature title="Pay for what you import">
+Draggable and droppable are separate entries: an app that imports one ships none of the other.
+</Feature>
+<Feature title="Pointer and keyboard">
+Mouse, touch and pen through Pointer Events, and a keyboard path that grabs, moves, drops and
+cancels with the same events.
+</Feature>
+</Features>
+
+<Section title="What it never ships">
+<Pills strike items={["CSS", "Icons", "Text", "A provider", "HTML5 drag and drop"]} />
+
+The state is exposed as data-dnd-\* attributes and ARIA, so any styling solution works: Tailwind,
+plain CSS, CSS modules, CSS-in-JS. The examples use Fragiola UI and its palettes.
+</Section>
