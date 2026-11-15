@@ -26,18 +26,18 @@ collision strategies, the types), entry by entry, so everything is imported from
 ## Entries
 
 Each capability is its own entry, so an app ships only the capabilities it imports. There is no
-`Dnd.*` namespace: parts are named exports of their capability's entry.
+`Dnd.*` namespace: parts are named exports of their capability's entry, and each entry re-exports
+the core's entry of the same name.
 
-| entry                           | what it holds                                                                                                      |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `@fragiola/dnd-react`           | the shared core: the drag space, sensors, collision strategies, events, `DragOverlay`, `useDragMonitor`, the types |
-| `@fragiola/dnd-react/draggable` | `Draggable`, `DragHandle`, `useDraggable`                                                                          |
-| `@fragiola/dnd-react/droppable` | `Droppable`, `useDroppable`                                                                                        |
+| entry                           | what it adds to the core's entry                                                                                                     |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `@fragiola/dnd-react`           | `DragOverlay`, `useDragMonitor`, `useDragSpace`, the types `WrapperProps`, `RenderProp`, `RenderedProps` (and the whole shared core) |
+| `@fragiola/dnd-react/draggable` | `Draggable`, `DragHandle`, `useDraggable` (and `registerDraggable`)                                                                  |
+| `@fragiola/dnd-react/droppable` | `Droppable`, `useDroppable` (and `registerDroppable`)                                                                                |
 
 ## A minimal drag and drop
 
-The target API, landing in this Epic: no provider, and the two halves in unrelated parts of the
-tree.
+No provider, and the two halves in unrelated parts of the tree:
 
 ```tsx
 import { Draggable } from "@fragiola/dnd-react/draggable";
@@ -47,16 +47,22 @@ import { useState } from "react";
 export function App() {
     const [inBox, setInBox] = useState(false);
     const card = (
-        <Draggable id="card">
-            <button type="button">Drag me</button>
+        <Draggable id="card" type="task">
+            <div className="card">Drag me</div>
         </Draggable>
     );
     return (
         <main>
             <aside>{inBox ? null : card}</aside>
             <section>
-                <Droppable id="box" onDrop={() => setInBox(true)}>
-                    <div aria-label="Drop here">{inBox ? card : null}</div>
+                <Droppable
+                    id="box"
+                    accepts={["task"]}
+                    onDrop={() => setInBox(true)}
+                >
+                    <div aria-label="Drop here" className="box">
+                        {inBox ? card : null}
+                    </div>
                 </Droppable>
             </section>
         </main>
@@ -64,9 +70,131 @@ export function App() {
 }
 ```
 
-Neither wrapper renders an element: `Draggable` gives the `button` its handlers, its `ref` and
-`data-dnd-dragging` while it moves; `Droppable` gives the `div` `data-dnd-over` while the card is
-over it. The look is all yours.
+Neither wrapper renders an element. `Draggable` registers the `div` in its document's drag space,
+makes it a tab stop (Space or Enter grabs, the arrows move, Escape cancels) and marks it
+`data-dnd-part="draggable"`, `data-dnd-id="card"` and, while it moves, `data-dnd-dragging`; during
+the drag the core moves it with the CSS `translate` property, once per frame, without rendering
+React. `Droppable` marks its element `data-dnd-over`, `data-dnd-refused` or `data-dnd-active`.
+The look is all yours:
+
+```css
+[data-dnd-dragging] {
+    opacity: 0.6;
+}
+[data-dnd-over] {
+    outline: 2px solid;
+}
+[data-dnd-refused] {
+    outline: 2px dashed red;
+}
+```
+
+## The wrapper
+
+A wrapper clones its **single child**: a DOM element, or a component that passes `ref` and its
+other props on to its element, as every Fragiola primitive does (`Dockable.TabSet`,
+`GridLayout.Item`). Its handlers run before the child's own; the child's `ref`, `className` and
+`style` are kept; `className` and `style` also take a function of the state. With no child to wrap,
+`render` gives the element:
+
+```tsx
+<Draggable id="a" className={(state) => (state.dragging ? "lifted" : undefined)}>
+    <Card ref={cardRef} onPointerDown={track} />
+</Draggable>
+
+<Droppable id="list" render={(props, state) => <ul {...props} data-full={state.over || undefined} />}>
+    {items}
+</Droppable>
+```
+
+In development, no child, several children, a fragment or text throw, and a child that never
+receives the ref is reported. Wrappers stack: `<Droppable><Draggable><Card /></Draggable></Droppable>`.
+
+## A handle, controls and the keyboard
+
+```tsx
+import { DragHandle, Draggable } from "@fragiola/dnd-react/draggable";
+
+<Draggable id="row" keyboard={{ mode: "targets" }} describedBy="drag-help">
+    <li>
+        <DragHandle describedBy="drag-help">
+            <span aria-label="Move">⋮⋮</span>
+        </DragHandle>
+        Row
+        <button type="button">Edit</button>
+        <div data-dnd-no-drag>…</div>
+    </li>
+</Draggable>;
+```
+
+The handle is the only place a drag starts, and the tab stop; it finds its draggable through the
+DOM, not a context. Buttons, inputs and `data-dnd-no-drag` subtrees never start a drag.
+
+## An overlay, auto-scroll, rules and a monitor
+
+```tsx
+import {
+    autoScroll,
+    DragOverlay,
+    useDragMonitor,
+    useDragSpace,
+} from "@fragiola/dnd-react";
+
+const scroll = autoScroll();
+
+function Board() {
+    const space = useDragSpace(); // the document's, once mounted
+    useEffect(
+        () =>
+            space?.use((ctx, next) =>
+                ctx.payload.droppableId === "archive"
+                    ? { ok: false, error: { code: "vetoed" } }
+                    : next(),
+            ),
+        [space],
+    );
+    useDragMonitor((event) => announce(event)); // your live region, your words
+    return (
+        <>
+            <div style={{ overflow: "hidden" }}>
+                <Draggable id="a" translate={false} autoScroll={scroll}>
+                    <Card />
+                </Draggable>
+            </div>
+            <DragOverlay>
+                {(operation) => <Card id={operation.source.id} />}
+            </DragOverlay>
+        </>
+    );
+}
+```
+
+`DragOverlay` is the only part that renders HTML: while a drag runs, a `div` portalled into the
+document's `body`, fixed over the dragged box (`position`, geometry and `pointer-events: none` are
+its only inline style), moved without rendering React. `translate={false}` keeps the source in
+place.
+
+## Hooks
+
+`useDraggable(options)` and `useDroppable(options)` are the lower layer and return
+`{ state, props }`: spread `props` (the registering `ref`, `data-dnd-*`, ARIA) onto one element.
+Options update the registration without re-registering, and inline callbacks are always the
+latest. Nothing touches the DOM while rendering, so server rendering works as is.
+
+## Size
+
+`pnpm size` reports each entry, and what an app ships for the entries it imports, with the core
+they pull (min + gzip, React left out). Measured at the end of the walking skeleton:
+
+| imported                             | min + gzip       | target (D13)   |
+| ------------------------------------ | ---------------- | -------------- |
+| `@fragiola/dnd-react`                | 3.7 KB           | ≤ 4 KB         |
+| `@fragiola/dnd-react` + `/draggable` | 7.9 KB (+4.3 KB) | ≤ 2 KB extra   |
+| `@fragiola/dnd-react` + `/droppable` | 4.8 KB (+1.1 KB) | ≤ 1.5 KB extra |
+| all three                            | 8.4 KB           |                |
+
+The draggable misses its target: the core's draggable capability (the pointer and keyboard
+sensors, the drag operation and the collision pass, 3.2 KB alone) is most of it.
 
 ## Stability
 

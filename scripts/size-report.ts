@@ -41,6 +41,89 @@ function chunksOf(source: string): string[] {
     );
 }
 
+interface Rolldown {
+    rolldown(options: {
+        input: string;
+        cwd: string;
+        external: RegExp;
+        plugins: {
+            name: string;
+            resolveId(id: string): string | undefined;
+            load(id: string): string | undefined;
+        }[];
+    }): Promise<{
+        generate(options: { format: "esm"; minify: boolean }): Promise<{
+            output: { code?: string }[];
+        }>;
+    }>;
+}
+
+/** rolldown, through the tsdown a package builds with; `undefined` when not found. */
+async function loadRolldown(): Promise<Rolldown | undefined> {
+    try {
+        const fromPackage = createRequire(
+            join(root, "packages", "react", "package.json"),
+        );
+        const fromTsdown = createRequire(fromPackage.resolve("tsdown"));
+        return (await import(fromTsdown.resolve("rolldown"))) as Rolldown;
+    } catch {
+        return undefined;
+    }
+}
+
+/**
+ * What an app ships for the React entries it imports, with the core they pull (D13): each set of
+ * entries' every export, bundled from `dist` and minified, React left out, then gzip.
+ */
+async function appSizes(rolldown: Rolldown): Promise<string[]> {
+    const dist = join(root, "packages", "react", "dist");
+    if (!existsSync(dist)) return [];
+    const size = async (entries: readonly string[]) => {
+        const code = entries
+            .map(
+                (name) =>
+                    `export * from ${JSON.stringify(join(dist, `${name}.js`))};`,
+            )
+            .join("\n");
+        const build = await rolldown.rolldown({
+            input: "app",
+            cwd: join(root, "packages", "react"),
+            external: /^react(?:-dom)?(?:\/|$)/,
+            plugins: [
+                {
+                    name: "app",
+                    resolveId: (id) => (id === "app" ? id : undefined),
+                    load: (id) => (id === "app" ? code : undefined),
+                },
+            ],
+        });
+        const { output } = await build.generate({
+            format: "esm",
+            minify: true,
+        });
+        return gzipSync(output.map((chunk) => chunk.code ?? "").join("\n"))
+            .length;
+    };
+    const shared = await size(["index"]);
+    const rows = [
+        "| React entries imported (with the core) | min + gzip | over the shared entry | target |",
+        "| --- | --- | --- | --- |",
+        `| \`@fragiola/dnd-react\` | ${kb(shared)} | | ≤ 4 KB |`,
+    ];
+    for (const [name, target] of [
+        ["draggable", "≤ 2 KB extra"],
+        ["droppable", "≤ 1.5 KB extra"],
+    ] as const) {
+        const both = await size(["index", name]);
+        rows.push(
+            `| \`@fragiola/dnd-react\` + \`/${name}\` | ${kb(both)} | ${kb(both - shared)} | ${target} |`,
+        );
+    }
+    const all = await size(["index", "draggable", "droppable"]);
+    rows.push(`| all three | ${kb(all)} | ${kb(all - shared)} | |`);
+    return rows;
+}
+
 async function main() {
     const minify = await loadMinify();
     const lines = [
@@ -68,11 +151,14 @@ async function main() {
             );
         }
     }
+    const rolldown = await loadRolldown();
+    const app = rolldown ? await appSizes(rolldown).catch(() => []) : [];
     const report = [
         "### Bundle sizes",
         "",
         ...lines,
         "",
+        ...(app.length ? [...app, ""] : []),
         minify
             ? "min + gzip: rolldown's minifier, then gzip (a consumer's bundler gets close to it)."
             : "min + gzip: n/a (rolldown's minifier was not found).",

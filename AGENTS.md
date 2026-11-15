@@ -110,7 +110,11 @@ an implementation detail.
    collides with its own attributes (Dockable's `data-dragging`): `data-dnd-dragging` on the
    dragged element; `data-dnd-over` and `data-dnd-refused` on a droppable; `data-dnd-active` on a
    droppable that would accept the drag in progress; `data-dnd-disabled`, and `data-dnd-handle` on
-   a handle. A component test asserts the inline style allow-list.
+   a handle. A component test asserts the inline style allow-list. **A part attribute on every
+   element a wrapper touches** (the Fragiola path-attribute rule, so e2e selectors and tooling never
+   depend on class names): `data-dnd-part="draggable" | "handle" | "droppable" | "overlay"`, and
+   `data-dnd-id="<id>"` on a draggable and a droppable. Stacked wrappers on one element list their
+   parts (`data-dnd-part="draggable droppable"`, matched with `~=`) and keep the inner one's id.
 8. **A drag does not render React (D8).** The core writes `translate` imperatively, at most once
    per animation frame through the element's `defaultView`. React re-renders only the parts whose
    `state` changed: the source on start and end, and droppables on enter, leave and drop. A render
@@ -140,8 +144,9 @@ an implementation detail.
     `aria-disabled` when disabled, and `aria-describedby` only when the app passes `describedBy`.
 11. **Fragiola interop (D11).** See [Interop](#interop-with-the-family) below. Nested presses are
     claimed with `preventDefault()` on `pointerdown` and a press another library already claimed is
-    ignored; dnd's `translate` and `data-dnd-*` never collide with a wrapped primitive's
-    `transform` and `data-*`; a draggable keeps working after Dockable moves its element or carries
+    ignored (the claim suppresses the focus a press gives, in Chromium and Firefox, so the pointer
+    sensor gives that focus back itself); dnd's `translate` and `data-dnd-*` never collide with a
+    wrapped primitive's `transform` and `data-*`; a draggable keeps working after Dockable moves its element or carries
     it into a popout; drops into the family go through their commands, in app code. **The packages
     never import a sibling.**
 12. **Versions and tooling (D12).** Grid Layout's toolchain: pnpm 11 (`pnpm@11.23.0`, as every
@@ -216,7 +221,16 @@ and the source beside the stage; the state is in the URL
   a default export only, grouped by area (`drag`, `drop`, `keyboard`, `interop`, `api`). The Grid
   Layout integrations live here, behind the `../grid-layout` alias (D12).
 - **Fixtures** (`fixtures/<name>/`) are the unstyled pages Playwright drives; the sidebar links
-  them.
+  them. `basic/` and `rtl/` are one page (`fixtures/fixture.tsx`) in each direction, driven by one
+  spec (`e2e/fixture.spec.ts`; `e2e/fixture.touch.spec.ts` on a phone).
+- **Grid Layout** is found by `siblings.ts`, walking up from the playground to the first folder
+  holding `grid-layout` (the checkout may be a worktree), and aliased to its sources in
+  `vite.config.ts` and `vitest.config.ts`. Absent (or with `DND_GRID_LAYOUT=off`), both names
+  resolve to a stub (`src/grid-layout-absent.ts`), `__GRID_LAYOUT__` is false, the catalog leaves
+  the `interop/grid-layout-*` scenarios out and their e2e spec skips. TypeScript reads the slice of
+  its API the scenario uses from a local ambient declaration (`src/grid-layout.d.ts`), so
+  `pnpm typecheck` passes either way and the scenario stays typechecked; a drift in Grid Layout's
+  API shows in the e2e spec.
 
 ## Conventions
 
@@ -267,7 +281,16 @@ Every wrapper follows the same rules (D6, D7). Tests enforce them; keep it that 
   message.
 - **`render` is also accepted**, Base UI style (`render={<li />}` or
   `render={(props, state) => …}`), for when there is no child to wrap.
-- **`ref` is a plain prop** (React 19) and is merged with the wrapper's own.
+- **`ref` is a plain prop** (React 19) and is merged with the wrapper's own: the wrapper's ref,
+  the `ref` given to the wrapper and the child's own `ref` all receive the element.
+- **A wrapper forwards what is not its option** to the element, so a wrapper is itself a valid
+  child and wrappers stack (`<Droppable><Draggable><Card /></Draggable></Droppable>`).
+- **No context, even for a handle**: a `DragHandle` finds its draggable through the DOM (the
+  closest `[data-dnd-part~="draggable"]`), whichever side attaches first.
+- **Development checks** (`process.env.NODE_ENV !== "production"`, written literally so the app's
+  bundler drops them): no child, several children, a fragment or text throw; a child that never
+  attaches the ref, and a handle outside a draggable, are reported with `console.error` after
+  mount. In production an invalid child renders as it is.
 - **Handlers compose**: internal first, then the child's own.
 - **`className` and `style` accept a value or a `(state) => value` function**, as in every
   Fragiola primitive. Structural style always wins.
@@ -289,9 +312,12 @@ D11, in practice. These rules make dnd easy to combine with Dockable and Grid La
   `preventDefault()`. Grid Layout already ignores `defaultPrevented` presses
   (`grid-layout/packages/core/src/engine/engine.ts`, `pointerdown`), so a sortable list inside a
   `GridLayout.Item` drags its cards and not the grid item. dnd in turn ignores a press another
-  library already claimed (`defaultPrevented`). If `preventDefault` on `pointerdown` breaks focus
-  or text selection in a browser, the press is claimed another way and the choice is recorded in
-  the report: a decision, not a stop.
+  library already claimed (`defaultPrevented`). **Measured in Chromium and Firefox** (the
+  fixture's e2e): cancelling `pointerdown` keeps `click` and the native controls (never claimed)
+  working, but suppresses the focus a press gives. The claim stays, and the pointer sensor gives
+  that focus itself, to the press's focusable element inside the activator
+  (`packages/core/src/core/sensors/pointer.ts`, `focusPress`). Text selection is prevented while
+  a press lasts, on purpose.
 - **Wrapping primitives.** A wrapper over `Dockable.Tab`, `Dockable.TabSet`, `GridLayout.Item` or a
   Fragiola UI component works because they forward props and ref and compose handlers. dnd's
   `translate` and `data-dnd-*` never collide with their `transform` and `data-*`.
