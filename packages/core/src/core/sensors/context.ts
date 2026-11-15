@@ -14,4 +14,9 @@ export interface SensorContext {
     dragging(): boolean;
     activation(): Activation | undefined;
     keyboard(): KeyboardOptions | undefined;
+    /**
+     * where an arrow moves the drag in the "targets" mode, when the capability orders its own
+     * places (a sortable's slots); by default, the next droppable in reading order
+     */
+    step?(session: Session, forward: boolean, rtl: boolean): Point | undefined;
 }

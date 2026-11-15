@@ -23,6 +23,7 @@ import type {
     DropPayload,
     DroppableEventType,
     DroppableState,
+    Rect,
     VerbArgs,
 } from "./types";
 
@@ -50,7 +51,10 @@ export interface DroppableEntry extends EntryBase {
     readonly kind: "droppable";
     data(): unknown;
     disabled(): boolean;
-    accepts(source: DragSource): boolean;
+    /** whether it takes `source`, the drag source of `from` (a capability's own rules read it) */
+    accepts(source: DragSource, from?: DraggableEntry): boolean;
+    /** its box at rest, when it is not its element's (a sortable group: its items together) */
+    rect?(): Rect;
     state(): DroppableState;
     /** a drag it could meet began; `accepted` says whether it would take the source */
     start(accepted: boolean): void;
@@ -192,7 +196,7 @@ function makeSpace(doc: Document, entries?: Set<DragEntry>): DragSpace {
             if (
                 target.scope() !== source.scope() ||
                 target.disabled() ||
-                !accepts(target, source.source())
+                !accepts(target, source)
             )
                 return fail("refused", "The droppable does not take it.");
             return askDrop(space, source.source(), target, true);
@@ -310,11 +314,11 @@ export function emit(space: DragSpace, event: DragSpaceEvent): boolean {
     return ok;
 }
 
-/** Whether `target` takes `source`, by its `accepts`; one that throws refuses. @internal */
-export function accepts(target: DroppableEntry, source: DragSource): boolean {
+/** Whether `target` takes the source of `from`, by its `accepts`; one that throws refuses. @internal */
+export function accepts(target: DroppableEntry, from: DraggableEntry): boolean {
     let accepted = false;
     guarded(target.element.ownerDocument.defaultView, () => {
-        accepted = target.accepts(source);
+        accepted = target.accepts(from.source(), from);
     });
     return accepted;
 }

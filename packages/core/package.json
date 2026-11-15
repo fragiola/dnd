@@ -1,12 +1,14 @@
 {
     "name": "@fragiola/dnd",
     "version": "0.0.0",
-    "description": "Headless drag and drop core: a drag space per document, pointer and keyboard sensors, collision strategies and the draggable and droppable capabilities, framework-free and dependency-free.",
+    "description": "Headless drag and drop core: a drag space per document, pointer and keyboard sensors, collision strategies and the draggable, droppable, sortable and swappable capabilities, framework-free and dependency-free.",
     "keywords": [
         "drag-and-drop",
         "dnd",
         "draggable",
         "droppable",
+        "sortable",
+        "swappable",
         "headless",
         "accessibility",
         "pointer-events"
@@ -47,6 +49,18 @@
             "import": "./dist/droppable.js",
             "default": "./dist/droppable.js"
         },
+        "./sortable": {
+            "@fragiola/source": "./src/sortable/index.ts",
+            "types": "./dist/sortable.d.ts",
+            "import": "./dist/sortable.js",
+            "default": "./dist/sortable.js"
+        },
+        "./swappable": {
+            "@fragiola/source": "./src/swappable/index.ts",
+            "types": "./dist/swappable.d.ts",
+            "import": "./dist/swappable.js",
+            "default": "./dist/swappable.js"
+        },
         "./package.json": "./package.json"
     },
     "files": [
@@ -70,6 +84,16 @@
                 "types": "./dist/droppable.d.ts",
                 "import": "./dist/droppable.js",
                 "default": "./dist/droppable.js"
+            },
+            "./sortable": {
+                "types": "./dist/sortable.d.ts",
+                "import": "./dist/sortable.js",
+                "default": "./dist/sortable.js"
+            },
+            "./swappable": {
+                "types": "./dist/swappable.d.ts",
+                "import": "./dist/swappable.js",
+                "default": "./dist/swappable.js"
             },
             "./package.json": "./package.json"
         }

@@ -29,7 +29,7 @@ import type {
     Point,
     Rect,
 } from "./types";
-import { createWriter } from "./writer";
+import { createWriter, restRect } from "./writer";
 
 /** A draggable, as the operation drives it. @internal */
 export interface SourceEntry extends DraggableEntry {
@@ -115,13 +115,13 @@ export function startDrag(
                 continue;
             let accepted = met.get(other);
             if (accepted === undefined) {
-                accepted = accepts(other, source);
+                accepted = accepts(other, entry);
                 met.set(other, accepted);
                 other.start(accepted);
             }
             (accepted ? next : refused).push({
                 id: other.id(),
-                rect: measure(other.element),
+                rect: other.rect?.() ?? restRect(other.element),
                 entry: other,
                 accepted,
             });

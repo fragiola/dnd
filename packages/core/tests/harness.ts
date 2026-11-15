@@ -13,6 +13,13 @@ import {
     type DroppableRegistration,
     registerDroppable,
 } from "../src/droppable";
+import {
+    registerSortable,
+    registerSortableGroup,
+    type SortableGroupOptions,
+    type SortableOptions,
+} from "../src/sortable";
+import { registerSwappable, type SwappableOptions } from "../src/swappable";
 
 let frames: (FrameRequestCallback | undefined)[] = [];
 const registrations: { unregister(): void }[] = [];
@@ -119,6 +126,38 @@ export function droppable(
 ) {
     const el = element(box, parent);
     const registration: DroppableRegistration = registerDroppable(el, options);
+    registrations.push(registration);
+    return { element: el, registration };
+}
+
+/** A sortable item registered on a new element at `box`. */
+export function sortable(options: SortableOptions, box: Box, parent?: Element) {
+    const el = element(box, parent);
+    const registration = registerSortable(el, options);
+    registrations.push(registration);
+    return { element: el, registration };
+}
+
+/** A sortable group's container registered on a new element at `box`. */
+export function sortableGroup(
+    options: SortableGroupOptions,
+    box: Box,
+    parent?: Element,
+) {
+    const el = element(box, parent);
+    const registration = registerSortableGroup(el, options);
+    registrations.push(registration);
+    return { element: el, registration };
+}
+
+/** A swappable item registered on a new element at `box`. */
+export function swappable(
+    options: SwappableOptions,
+    box: Box,
+    parent?: Element,
+) {
+    const el = element(box, parent);
+    const registration = registerSwappable(el, options);
     registrations.push(registration);
     return { element: el, registration };
 }

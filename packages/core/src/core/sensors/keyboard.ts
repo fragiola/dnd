@@ -88,6 +88,31 @@ export function bindKeyboard(
         const view = doc.defaultView;
         let at: Candidate | undefined;
         let refocus = true;
+        /** the centre of the next droppable in reading order, from the one it is at */
+        const nextTarget = (forward: boolean, rtl: boolean) => {
+            const order = readingOrder(session.targets(), rtl);
+            const current = at ?? session.hovered();
+            const index = order.findIndex(
+                (candidate) => candidate.entry === current?.entry,
+            );
+            const next =
+                order[
+                    index < 0
+                        ? forward
+                            ? 0
+                            : order.length - 1
+                        : Math.max(
+                              0,
+                              Math.min(
+                                  order.length - 1,
+                                  index + (forward ? 1 : -1),
+                              ),
+                          )
+                ];
+            if (!next) return undefined;
+            at = next;
+            return center(next.rect);
+        };
         session.onEnd(
             listen(doc, "keydown", (key) => {
                 // the grab itself reaches the document after the activator
@@ -106,31 +131,15 @@ export function bindKeyboard(
                     const rtl =
                         view?.getComputedStyle(context.element).direction ===
                         "rtl";
-                    const order = readingOrder(session.targets(), rtl);
-                    const current = at ?? session.hovered();
-                    const index = order.findIndex(
-                        (candidate) => candidate.entry === current?.entry,
-                    );
                     // forward is down, or toward the inline end: right in LTR, left in RTL
                     const forward =
                         arrow[1] > 0 || arrow[0] * (rtl ? -1 : 1) > 0;
-                    const next =
-                        order[
-                            index < 0
-                                ? forward
-                                    ? 0
-                                    : order.length - 1
-                                : Math.max(
-                                      0,
-                                      Math.min(
-                                          order.length - 1,
-                                          index + (forward ? 1 : -1),
-                                      ),
-                                  )
-                        ];
-                    if (!next) return;
-                    at = next;
-                    pointer = center(next.rect);
+                    // a capability with its own order of places (a sortable's slots) says where
+                    const to = context.step
+                        ? context.step(session, forward, rtl)
+                        : nextTarget(forward, rtl);
+                    if (!to) return;
+                    pointer = to;
                     session.move(pointer);
                 } else {
                     const step = context.keyboard()?.step ?? 25;
