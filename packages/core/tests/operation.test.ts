@@ -314,6 +314,45 @@ describe("the drag lifecycle", () => {
         expect(targets).toEqual(["a", undefined]);
     });
 
+    it("starts with the droppable it starts over as its target, and no drag-over repeats it", () => {
+        const log: string[] = [];
+        droppable(
+            {
+                id: "a",
+                onDragEnter: (event) =>
+                    log.push(`a:enter:${event.operation.target?.id}`),
+                onDragLeave: () => log.push("a:leave"),
+            },
+            LEFT,
+        );
+        droppable({ id: "b" }, RIGHT);
+        const off = subscribe(
+            (event) => {
+                if (event.type !== "drag-move")
+                    log.push(`${event.type}:${event.operation.target?.id}`);
+            },
+            { document },
+        );
+        // the draggable sits inside a
+        const { element } = draggable(
+            { id: "c" },
+            { x: 110, y: 10, width: 30, height: 30 },
+        );
+        const press = pointer(element, 120, 20);
+        press.move(130, 20);
+        press.move(140, 20);
+        press.move(350, 50);
+        press.release(350, 50);
+        off();
+        expect(log).toEqual([
+            "drag-start:a",
+            "a:enter:a",
+            "a:leave",
+            "drag-over:b",
+            "drop:b",
+        ]);
+    });
+
     it("gives an overlay the dragged box and the grab offset", () => {
         const { element } = draggable(
             { id: "c" },

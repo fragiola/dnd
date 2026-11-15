@@ -174,19 +174,18 @@ export function startDrag(
         return sent;
     }
 
-    function frame(): void {
-        if (frameId !== undefined) view?.cancelAnimationFrame(frameId);
-        frameId = undefined;
-        if (dirty) {
-            dirty = false;
-            collect();
-            const now = measure(element);
-            base = {
-                ...now,
-                x: now.x - (writer?.x ?? 0),
-                y: now.y - (writer?.y ?? 0),
-            };
-        }
+    /** What a collision changed, for {@link tell}. */
+    interface Located {
+        readonly hit: Candidate | undefined;
+        readonly entered: boolean;
+        readonly left: Candidate | undefined;
+        readonly leftAllowed: boolean;
+        /** whether the target is another droppable (or none) than before */
+        readonly changed: boolean;
+    }
+
+    /** Runs the collision for the pointer now: the hovered droppable, the target, the snapshot. */
+    function locate(): Located {
         const delta = { x: pointer.x - origin.x, y: pointer.y - origin.y };
         const drag = { ...start, x: start.x + delta.x, y: start.y + delta.y };
         const collide = entry.collision() ?? pointerWithin;
@@ -206,6 +205,17 @@ export function startDrag(
         hovered = hit;
         target = allowed ? hit : undefined;
         session.operation = snapshot("dragging", delta, drag);
+        return {
+            hit,
+            entered,
+            left,
+            leftAllowed,
+            changed: target?.entry !== before?.entry,
+        };
+    }
+
+    /** Tells the droppables of a collision that they are left, entered or hovered. */
+    function tell({ hit, entered, left, leftAllowed }: Located): void {
         if (left)
             app(() =>
                 left.entry.hover(
@@ -222,7 +232,25 @@ export function startDrag(
                     allowed,
                 ),
             );
-        if (target?.entry !== before?.entry) send("drag-over");
+    }
+
+    function frame(): void {
+        if (frameId !== undefined) view?.cancelAnimationFrame(frameId);
+        frameId = undefined;
+        if (dirty) {
+            dirty = false;
+            collect();
+            const now = measure(element);
+            base = {
+                ...now,
+                x: now.x - (writer?.x ?? 0),
+                y: now.y - (writer?.y ?? 0),
+            };
+        }
+        const located = locate();
+        tell(located);
+        // the page hears of a target change only: the start target came with `drag-start`
+        if (located.changed) send("drag-over");
         send("drag-move");
         // a callback threw: the drag ends here, cleanly, as a cancel
         if (broken) {
@@ -231,6 +259,7 @@ export function startDrag(
         }
         scroller?.move(pointer);
         // under the pointer wherever its container scrolled to
+        const delta = session.operation.delta;
         writer?.write(start.x - base.x + delta.x, start.y - base.y + delta.y);
     }
 
@@ -318,8 +347,14 @@ export function startDrag(
     );
     if (view) session.onEnd(listen(view, "resize", session.invalidate));
     entry.dragging(true);
+    // the place it starts from is resolved now, not on the first frame: `drag-start` carries it
+    // as its target (no `drag-over` repeats it), and a key pressed before that frame (the
+    // keyboard's first arrow) moves on from it
+    const located = locate();
     send("drag-start");
-    // a throwing `onDragStart` (or listener) cancels the drag before it follows anything
+    // a throwing `onDragStart` (or listener, or the start droppable's `onDragEnter`) cancels the
+    // drag before it follows anything
+    if (!broken) tell(located);
     if (broken) {
         session.cancel();
         return undefined;

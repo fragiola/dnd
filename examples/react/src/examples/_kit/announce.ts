@@ -42,26 +42,6 @@ export function describeDrag(
     }
 }
 
-/**
- * `describeDrag` for one drag after another: the target a drag finds before it moved is the place
- * it starts from, not news, so that `drag-over` is not said (it would replace the "Picked up"
- * sentence before a screen reader reads it).
- */
-export function createNarrator(
-    nameOf: (id: string | number) => string,
-): (event: DragEventLike) => string | undefined {
-    let started = false;
-    return (event) => {
-        if (event.type === "drag-start") started = true;
-        else if (event.type === "drag-over" && started) {
-            started = false;
-            const { x, y } = event.operation.delta;
-            if (Math.hypot(x, y) < 8) return undefined;
-        }
-        return describeDrag(event, nameOf);
-    };
-}
-
 /** A message for a live region, and the function that sets it (`undefined` keeps the last one). */
 export function useAnnouncer(
     initial = "",

@@ -190,6 +190,19 @@ describe("the keyboard sensor", () => {
         expect(onDragStart).not.toHaveBeenCalled();
     });
 
+    it("moves on from the droppable it starts over, with an arrow before the first frame (targets)", () => {
+        // the draggable sits inside b: its first ArrowRight goes to c, not to a
+        const { element } = setup({ id: "s", keyboard: { mode: "targets" } });
+        element.getBoundingClientRect = () =>
+            DOMRect.fromRect({ x: 225, y: 25, width: 50, height: 50 });
+        key(" ");
+        expect(target()).toBe("b");
+        key("ArrowRight");
+        flush();
+        expect(target()).toBe("c");
+        press("Escape");
+    });
+
     it("moves droppable to droppable in reading order, with mode targets", () => {
         setup({ id: "s", keyboard: { mode: "targets" } });
         press(" ", "ArrowRight");

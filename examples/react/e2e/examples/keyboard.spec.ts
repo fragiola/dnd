@@ -14,8 +14,6 @@ test("Space grabs, the arrows go column to column, Space drops, and the live reg
     await page.keyboard.press("Space");
     await expect(card).toHaveAttribute("data-dnd-dragging", "");
     await expect(status).toContainText("Picked up Fix the login redirect");
-    // the drag's first frame has found the column it starts over
-    await expect(named(page, "Backlog")).toHaveAttribute("data-dnd-over", "");
     await page.keyboard.press("ArrowRight");
     await expect(status).toHaveText("Fix the login redirect is over Doing.");
     await page.keyboard.press("ArrowRight");

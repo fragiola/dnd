@@ -5,7 +5,7 @@ import { Draggable } from "@fragiola/dnd-react/draggable";
 import { Droppable } from "@fragiola/dnd-react/droppable";
 import { useState } from "react";
 import { Switch } from "#/components/ui/switch";
-import { createNarrator, useAnnouncer } from "../_kit/announce";
+import { describeDrag, useAnnouncer } from "../_kit/announce";
 import { type Board, moveTask, taskOf } from "../_kit/tasks";
 import * as styles from "./styles";
 
@@ -43,8 +43,7 @@ export default function Keyboard() {
     const [message, announce] = useAnnouncer(
         "Tab to a card, then press Space to grab it.",
     );
-    const [narrate] = useState(() => createNarrator(nameOf));
-    useDragMonitor((event) => announce(narrate(event)));
+    useDragMonitor((event) => announce(describeDrag(event, nameOf)));
     return (
         <div className={styles.frame}>
             <div className={styles.panel}>

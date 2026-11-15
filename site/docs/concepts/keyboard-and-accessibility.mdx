@@ -66,5 +66,6 @@ function Announcer({ nameOf }: { nameOf: (id: string | number) => string }) {
 }
 ```
 
-The first `drag-over` of a drag reports where it starts, right after `drag-start`; the keyboard
-example skips it, so the "Picked up" sentence is not replaced before it is read.
+`drag-start` already carries the droppable the drag starts over as its `operation.target`, and
+`drag-over` only reports a change of target after that, so the "Picked up" sentence is not
+replaced before it is read.

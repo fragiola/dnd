@@ -6,33 +6,33 @@ Epic (#6).
 
 ## The bets
 
-| # | bet | held? | how we know |
-|---|---|---|---|
-| 1 | **Wrapper without HTML.** `<Draggable id="a"><Card /></Draggable>` renders nothing of its own and merges into a plain element or any Fragiola primitive. | Yes | Component tests assert the DOM is exactly the child's, the merged props, refs and handlers, stacking (`data-dnd-part="draggable droppable"`), the inline style allow-list and the development errors for invalid children (`packages/react/tests`). A test wraps a component that forwards props and ref as `Dockable.Tab` does, and both libraries' attributes and handlers survive. In the examples the wrapped elements are `article`, `li`, `section`, a `button` handle and `Dockable.TabSet`. |
-| 2 | **No provider.** Draggables and droppables meet through a drag space per document. | Yes | The fixture spec drags between unrelated subtrees with no common wrapper (Chromium, Firefox); two scopes never meet; an explicit `createDragSpace` is isolated from the document's; a core test moves an element into another document (a popout) and it meets that document's droppables. `hello-dnd` and `scopes` show it in the gallery. |
-| 3 | **Pay for what you import.** Importing only `/draggable` ships no droppable code. | Yes, with a size target missed | The bundle test builds a fixture per capability and fails when another capability's code is in the output; a guard test fails when a capability imports another. The draggable entry is larger than its D13 target (see Numbers). |
-| 4 | **A drag does not render React.** The core writes `translate` once per frame; React commits only when a part's state changes. | Yes | Zero commits while the pointer moves inside one droppable: a Profiler test in jsdom and a render counter in the fixture, in Chromium and Firefox. The hand-off at drop does not flicker: the core clears `translate` after `onDrop`/`onDragEnd`, so an element the app moved goes straight to its new place, and one the app did not move can glide home with an at-rest transition (`styling-showcase`, asserted in its spec). |
-| 5 | **One pipeline for every input.** Pointer Events with capture for mouse, touch and pen; a keyboard path with the same events. | Yes | The same Playwright spec runs on an LTR and an RTL fixture in Chromium and Firefox (drag, click under the threshold, handle, no-drag controls, Escape, `pointercancel`, lost capture, `accepts`, keyboard step and targets, overlay, auto-scroll), a touch spec on a phone with the delay activation, and the `touch` example's spec drives real touch input (a held finger drags, a moving finger scrolls). |
-| 6 | **Plays well with the family.** Nested presses claimed, primitives wrapped, moved elements, drops through the siblings' commands. | Yes | Playground interop scenarios: a draggable in a Dockable panel keeps working after `tab.move`; a `Droppable` around `Dockable.TabSet` runs `tab.add`; a draggable in a `GridLayout.Item` drags without moving the item, and a drop on the grid runs `item.add` through `gridLayoutRef` (when `../grid-layout` is present). The examples `dockable-new-tab` (with a cross-library rule: `space.use` asking `model.can`) and `dockable-panels` show the Dockable side in the gallery. |
+| #   | bet                                                                                                                                                      | held?                          | how we know                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | **Wrapper without HTML.** `<Draggable id="a"><Card /></Draggable>` renders nothing of its own and merges into a plain element or any Fragiola primitive. | Yes                            | Component tests assert the DOM is exactly the child's, the merged props, refs and handlers, stacking (`data-dnd-part="draggable droppable"`), the inline style allow-list and the development errors for invalid children (`packages/react/tests`). A test wraps a component that forwards props and ref as `Dockable.Tab` does, and both libraries' attributes and handlers survive. In the examples the wrapped elements are `article`, `li`, `section`, a `button` handle and `Dockable.TabSet`. |
+| 2   | **No provider.** Draggables and droppables meet through a drag space per document.                                                                       | Yes                            | The fixture spec drags between unrelated subtrees with no common wrapper (Chromium, Firefox); two scopes never meet; an explicit `createDragSpace` is isolated from the document's; a core test moves an element into another document (a popout) and it meets that document's droppables. `hello-dnd` and `scopes` show it in the gallery.                                                                                                                                                         |
+| 3   | **Pay for what you import.** Importing only `/draggable` ships no droppable code.                                                                        | Yes, with a size target missed | The bundle test builds a fixture per capability and fails when another capability's code is in the output; a guard test fails when a capability imports another. The draggable entry is larger than its D13 target (see Numbers).                                                                                                                                                                                                                                                                   |
+| 4   | **A drag does not render React.** The core writes `translate` once per frame; React commits only when a part's state changes.                            | Yes                            | Zero commits while the pointer moves inside one droppable: a Profiler test in jsdom and a render counter in the fixture, in Chromium and Firefox. The hand-off at drop does not flicker: the core clears `translate` after `onDrop`/`onDragEnd`, so an element the app moved goes straight to its new place, and one the app did not move can glide home with an at-rest transition (`styling-showcase`, asserted in its spec).                                                                     |
+| 5   | **One pipeline for every input.** Pointer Events with capture for mouse, touch and pen; a keyboard path with the same events.                            | Yes                            | The same Playwright spec runs on an LTR and an RTL fixture in Chromium and Firefox (drag, click under the threshold, handle, no-drag controls, Escape, `pointercancel`, lost capture, `accepts`, keyboard step and targets, overlay, auto-scroll), a touch spec on a phone with the delay activation, and the `touch` example's spec drives real touch input (a held finger drags, a moving finger scrolls).                                                                                        |
+| 6   | **Plays well with the family.** Nested presses claimed, primitives wrapped, moved elements, drops through the siblings' commands.                        | Yes                            | Playground interop scenarios: a draggable in a Dockable panel keeps working after `tab.move`; a `Droppable` around `Dockable.TabSet` runs `tab.add`; a draggable in a `GridLayout.Item` drags without moving the item, and a drop on the grid runs `item.add` through `gridLayoutRef` (when `../grid-layout` is present). The examples `dockable-new-tab` (with a cross-library rule: `space.use` asking `model.can`) and `dockable-panels` show the Dockable side in the gallery.                  |
 
 ## Numbers
 
 Measured on the development machine; informative, not gates.
 
-| what | result |
-|---|---|
-| `@fragiola/dnd-react` (shared entry, with the core), min + gzip | 3.5 KB (target ≤ 4 KB: met) |
-| `+ /draggable` | 7.7 KB, +4.3 KB over the shared entry (target ≤ +2 KB: **missed**) |
-| `+ /droppable` | 4.6 KB, +1.1 KB (target ≤ +1.5 KB: met) |
-| all three entries | 8.1 KB |
-| only `Draggable` / only `Droppable` (tree-shaken) | 6.1 KB / 2.9 KB |
-| React commits while a drag moves inside one droppable | 0 |
-| React commits at a drag's start | 1 for the source, 1 per droppable of its scope (it becomes active), 1 for the droppable it starts over |
-| React commits per target change | 1 for the droppable left, 1 for the one entered (a `DragOverlay` adds 1) |
-| React commits at the drop | 1 for the source, 1 per droppable it met (back to rest) |
-| `translate` writes | at most 1 per animation frame |
-| unit and component tests | 244 (core 104, React 44, examples 41, site 32, playground 23) |
-| e2e | 92 in the playground (Chromium, Firefox, a phone), 112 in the examples app with `E2E_ALL_THEMES=1` (every example in five themes, inside an iframe, and its own spec) |
+| what                                                            | result                                                                                                                                                                |
+| --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@fragiola/dnd-react` (shared entry, with the core), min + gzip | 3.5 KB (target ≤ 4 KB: met)                                                                                                                                           |
+| `+ /draggable`                                                  | 7.7 KB, +4.3 KB over the shared entry (target ≤ +2 KB: **missed**)                                                                                                    |
+| `+ /droppable`                                                  | 4.6 KB, +1.1 KB (target ≤ +1.5 KB: met)                                                                                                                               |
+| all three entries                                               | 8.1 KB                                                                                                                                                                |
+| only `Draggable` / only `Droppable` (tree-shaken)               | 6.1 KB / 2.9 KB                                                                                                                                                       |
+| React commits while a drag moves inside one droppable           | 0                                                                                                                                                                     |
+| React commits at a drag's start                                 | 1 for the source, 1 per droppable of its scope (it becomes active), 1 for the droppable it starts over                                                                |
+| React commits per target change                                 | 1 for the droppable left, 1 for the one entered (a `DragOverlay` adds 1)                                                                                              |
+| React commits at the drop                                       | 1 for the source, 1 per droppable it met (back to rest)                                                                                                               |
+| `translate` writes                                              | at most 1 per animation frame                                                                                                                                         |
+| unit and component tests                                        | 244 (core 104, React 44, examples 41, site 32, playground 23)                                                                                                         |
+| e2e                                                             | 92 in the playground (Chromium, Firefox, a phone), 112 in the examples app with `E2E_ALL_THEMES=1` (every example in five themes, inside an iframe, and its own spec) |
 
 The sizes come from `pnpm size`: an app's production build of the entries it imports, with the
 core they pull, React left out and the development checks dropped. **Why the draggable misses:**
@@ -90,11 +90,19 @@ carries no dnd-kit notice yet.
 
 ## What the examples could not express
 
-Recorded in [`examples-gaps.md`](examples-gaps.md). Open:
+Recorded in [`examples-gaps.md`](examples-gaps.md). Fixed in the Epic's review pass, each with a
+regression test:
 
-- **`DragOverlay`'s state functions run while idle** with no operation, against their type (E1).
-- **The first `drag-over` repeats the start place**, so an announcer must skip it (E2).
-- **An arrow pressed before a keyboard drag's first frame** counts from no target (E3).
+- **`DragOverlay`'s state functions ran while idle** with no operation, against their type (E1):
+  the overlay now renders its content only while a drag runs.
+- **The first `drag-over` repeated the start place**, so an announcer had to skip it (E2): the
+  start target is resolved when the drag starts and carried by `drag-start`; `drag-over` reports
+  only a later change.
+- **An arrow pressed before a keyboard drag's first frame** counted from no target (E3): fixed by
+  the same start resolution.
+
+Open:
+
 - **Firefox scroll anchoring** scrolls a container back when `translate` is cleared after a
   cancel; `overflow-anchor: none` fixes it (E4). This explains the "Firefox scrollTop resets
   after a drop" observation: it happens on a cancel (or a release outside any droppable) with the
@@ -124,11 +132,10 @@ Recorded in [`examples-gaps.md`](examples-gaps.md). Open:
   `translate`'s base must be re-measured after it (the operation already re-measures on
   `invalidate`).
 - **The keyboard's targets mode** is dnd-kit's sortable keyboard idea and already orders targets
-  in reading order (RTL aware); sortable can reuse `readingOrder` for item-to-item moves. E3 (an
-  arrow before the first frame) should be fixed there.
+  in reading order (RTL aware); sortable can reuse `readingOrder` for item-to-item moves.
 - **Placeholders and the overlay.** Sortable lists in clipped containers will lean on
-  `DragOverlay`; E1 should be fixed first, and an overlay that keeps the grab offset
-  (`grabOffset`) is ready.
+  `DragOverlay` (E1 is fixed), and an overlay that keeps the grab offset (`grabOffset`) is
+  ready.
 - **Commits per reorder.** Bet 4 should hold for a reorder: the items' new places written
   imperatively during the drag, one React commit when the order changes, none per frame.
 - **Size.** Sortable will import the draggable and droppable logic through the shared core; the

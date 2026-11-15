@@ -31,10 +31,5 @@ and HTML5 drag and drop as the move mechanism are out by design.
   scroll anchor, and scroll the container back by as much when the core clears the element's
   `translate` after a cancel. Set `overflow-anchor: none` on the container (the auto-scroll
   example does).
-- **`DragOverlay`'s state functions run while idle**, with no operation: read `state.operation`
-  defensively.
-- **An arrow key pressed before a keyboard drag's first frame** counts from no target: in
-  `"targets"` mode it goes to the first droppable rather than the next one. People are slower
-  than a frame; scripted tests wait for `data-dnd-over`.
 - **Grid Layout integrations are local only** until Grid Layout is on npm: see
   [with Grid Layout](/docs/guides/with-grid-layout).
