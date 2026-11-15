@@ -54,12 +54,12 @@ describe("the drag lifecycle", () => {
         const { element } = draggable({ id: "card" });
         const space = getDragSpace(document);
         const press = pointer(element, 10, 10);
-        expect(space.getOperation()).toBeUndefined();
+        expect(space.get("operation")).toBeUndefined();
         press.move(20, 10);
-        expect(space.getOperation()?.phase).toBe("dragging");
-        expect(space.getOperation()?.delta).toEqual({ x: 10, y: 0 });
+        expect(space.get("operation")?.phase).toBe("dragging");
+        expect(space.get("operation")?.delta).toEqual({ x: 10, y: 0 });
         press.release(20, 10);
-        expect(space.getOperation()).toBeUndefined();
+        expect(space.get("operation")).toBeUndefined();
     });
 
     it("keeps one operation per space: a second press while dragging does nothing", () => {
@@ -225,7 +225,7 @@ describe("the drag lifecycle", () => {
         press.move(50, 50);
         registration.unregister();
         expect(onDragCancel).toHaveBeenCalledTimes(2);
-        expect(getDragSpace(document).getOperation()).toBeUndefined();
+        expect(getDragSpace(document).get("operation")).toBeUndefined();
     });
 
     it("meets a droppable registered during the drag, and forgets one removed", () => {
@@ -239,10 +239,12 @@ describe("the drag lifecycle", () => {
             over: true,
             active: true,
         });
-        expect(getDragSpace(document).getOperation()?.target?.id).toBe("late");
+        expect(getDragSpace(document).get("operation")?.target?.id).toBe(
+            "late",
+        );
         late.registration.unregister();
         flush();
-        expect(getDragSpace(document).getOperation()?.target).toBeUndefined();
+        expect(getDragSpace(document).get("operation")?.target).toBeUndefined();
         press.release(150, 50);
         expect(onDrop).not.toHaveBeenCalled();
     });
@@ -263,7 +265,7 @@ describe("the drag lifecycle", () => {
         expect(pendingFrames()).toBe(1);
         flush();
         expect(measure.mock.calls.length).toBe(measured + 1);
-        expect(getDragSpace(document).getOperation()?.target).toBeUndefined();
+        expect(getDragSpace(document).get("operation")?.target).toBeUndefined();
         press.release(170, 50);
     });
 
@@ -319,7 +321,7 @@ describe("the drag lifecycle", () => {
         );
         const press = pointer(element, 15, 30);
         press.move(115, 80);
-        const operation = getDragSpace(document).getOperation();
+        const operation = getDragSpace(document).get("operation");
         if (!operation) throw new Error("no operation");
         expect(grabOffset(operation)).toEqual({ x: 5, y: 10 });
         expect(overlayStyle(operation)).toEqual({

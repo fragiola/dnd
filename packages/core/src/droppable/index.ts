@@ -1,20 +1,21 @@
 // @fragiola/dnd/droppable: the droppable capability (D3). It imports only the shared core, never
 // another capability, so an app that uses only droppables ships no draggable code.
 import {
-    addEntry,
     DEFAULT_SCOPE,
     type DragSpace,
     type DroppableEntry,
-    moveEntry,
-    removeEntry,
     spaceOf,
     stateOf,
 } from "../core/space";
 import { createStore } from "../core/store";
+
+export type { DroppableState } from "../core/types";
+
 import type {
     DragId,
     DragSource,
     DroppableEvent,
+    DroppableState,
     Registration,
 } from "../core/types";
 
@@ -43,18 +44,6 @@ export interface DroppableOptions {
     readonly onDrop?: (event: DroppableEvent<"drop">) => void;
 }
 
-/**
- * A droppable's state, for rendering: `over` an accepted source hovers it (`data-dnd-over`), a
- * refused one does (`refused`, `data-dnd-refused`), `active` while a drag it would accept runs
- * (`data-dnd-active`).
- */
-export interface DroppableState {
-    readonly over: boolean;
-    readonly active: boolean;
-    readonly refused: boolean;
-    readonly disabled: boolean;
-}
-
 /** What {@link registerDroppable} returns. */
 export type DroppableRegistration = Registration<
     DroppableOptions,
@@ -78,8 +67,9 @@ export function registerDroppable(
         disabled: !!options.disabled,
     });
     const entry: DroppableEntry = {
-        droppable: true,
+        kind: "droppable",
         element,
+        state: store.get,
         space: options.space,
         id: () => current.id,
         data: () => current.data,
@@ -106,7 +96,7 @@ export function registerDroppable(
     };
     /** a drag in progress measures the droppables again */
     const invalidate = () => stateOf(spaceOf(entry)).session?.invalidate();
-    addEntry(entry);
+    let remove = spaceOf(entry).adapter.register(entry);
     invalidate();
     return {
         update(next) {
@@ -114,14 +104,18 @@ export function registerDroppable(
             const moved = next.space !== entry.space;
             if (moved) invalidate();
             current = next;
-            moveEntry(entry, next.space);
+            if (moved) {
+                remove();
+                entry.space = next.space;
+                remove = spaceOf(entry).adapter.register(entry);
+            }
             store.set({ disabled: !!next.disabled });
             invalidate();
         },
         unregister() {
             if (!registered) return;
             registered = false;
-            removeEntry(entry);
+            remove();
             invalidate();
         },
         getState: store.get,

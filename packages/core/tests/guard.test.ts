@@ -268,6 +268,25 @@ describe("core package guard", () => {
         }
     });
 
+    it("keeps the drag space's surface exact: the five verbs, use, subscribe and adapter", async () => {
+        const { createDragSpace } = await import("../src");
+        // the space touches its document only in a drag: a stand-in is enough here
+        const space = createDragSpace({ document: {} as Document });
+        expect(Object.keys(space).sort()).toEqual(
+            [
+                "adapter",
+                "can",
+                "check",
+                "get",
+                "is",
+                "run",
+                "subscribe",
+                "use",
+            ].sort(),
+        );
+        expect(Object.keys(space.adapter)).toEqual(["register"]);
+    });
+
     it("ships no CSS: styling is 100% the app's (D7)", () => {
         const css = ["core", "react"].flatMap((pkg) =>
             listFiles(join(packages, pkg, "src")).filter((file) =>

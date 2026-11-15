@@ -73,13 +73,25 @@ an implementation detail.
    subscribe with `subscribe(listener, { scope?, document? })` in the core, or
    `useDragMonitor(listener, options)` in React: the only, optional, "global" API. A drag never
    crosses documents: a drag inside a Dockable popout stays in that window.
+   **The drag space is the engine: five verbs.** dnd has no domain model (the app's data stays
+   the app's), so the `DragSpace` follows the engine side of the Fragiola model API and exposes
+   exactly `run`, `can`, `check`, `get`, `is`, `use`, `subscribe` and `adapter` (a guard test and a
+   type fixture keep it exact). Keys are kebab-case, typed by registries (`DragSpaceGetMap`,
+   `DragSpaceIsMap`, `DragSpaceRunMap`, `DragSpaceCheckMap`); a new read or question is a new key,
+   never a new method. `run` and `check` return a `CommandResult` and never throw. What only an
+   adapter calls is under `space.adapter`; `registerDraggable`/`registerDroppable` use it.
 5. **The core (D5).** Framework-free and **zero runtime dependencies**. It never imports `react`.
    It never touches global `document`/`window`/`requestAnimationFrame`/`ResizeObserver`/
    `getComputedStyle`; all DOM access goes through an element's `ownerDocument`/`defaultView`. A
    guard test enforces all three. A drag operation is an immutable snapshot:
    `{ source: { id, type?, data? }, target?: { id, data? }, pointer, delta, rects, input:
    "pointer" | "keyboard" }`. Droppables declare `accepts` (a type list or a predicate); a refused
-   hover marks `data-dnd-refused` and never reports `onDrop`. Collision strategies are pure
+   hover marks `data-dnd-refused` and never reports `onDrop`. After `accepts`, a drop goes through
+   the space's middleware (`space.use((ctx, next) => …)`, synchronous, outermost first): as a dry
+   run (`ctx.dryRun`, no side effects) on each hover target change and in `can`/`check("drop")`,
+   for real on the release, before `onDrop`/`onDragEnd`. A veto (`{ ok: false, error: { code:
+   "vetoed" } }`) marks the hover refused, and on the release drops nowhere: no `onDrop`, and
+   `onDragEnd` sees no `operation.target`. This is where an app writes a cross-library rule. Collision strategies are pure
    functions exported from the shared core, so unused ones are tree-shaken: `pointerWithin`
    (default), `closestCenter`, `rectIntersection`. Rects are measured at drag start and on scroll
    or resize during the drag, never on every frame.

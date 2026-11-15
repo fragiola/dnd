@@ -5,7 +5,7 @@ import { registerDraggable } from "../src/draggable";
 import { draggable, droppable, element, key, pointer } from "./harness";
 
 const ZONE = { x: 100, y: 0, width: 100, height: 100 };
-const dragging = () => getDragSpace(document).getOperation() !== undefined;
+const dragging = () => getDragSpace(document).get("operation") !== undefined;
 
 describe("the pointer sensor", () => {
     it("starts a mouse drag once the pointer moved 3 px, or the distance given", () => {

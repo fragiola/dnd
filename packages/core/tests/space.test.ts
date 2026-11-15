@@ -21,8 +21,7 @@ describe("the drag space", () => {
         const other = document.implementation.createHTMLDocument();
         expect(getDragSpace(document)).toBe(getDragSpace(document));
         expect(getDragSpace(other)).not.toBe(getDragSpace(document));
-        expect(getDragSpace(document).document).toBe(document);
-        expect(getDragSpace(document).getOperation()).toBeUndefined();
+        expect(getDragSpace(document).get("operation")).toBeUndefined();
     });
 
     it("lets a draggable and a droppable of one document meet with no other setup", () => {
@@ -94,7 +93,7 @@ describe("the drag space", () => {
         press.move(100, 100);
         expect(press.down.defaultPrevented).toBe(false);
         expect(onDragStart).not.toHaveBeenCalled();
-        expect(getDragSpace(document).getOperation()).toBeUndefined();
+        expect(getDragSpace(document).get("operation")).toBeUndefined();
     });
 
     it("works after a StrictMode double register (register, unregister, register)", () => {

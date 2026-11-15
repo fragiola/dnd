@@ -162,3 +162,112 @@ export interface Registration<Options, State> {
     /** calls `listener` after each state change; returns the unsubscribe */
     subscribe(listener: () => void): () => void;
 }
+
+/** A draggable's state, for rendering (`data-dnd-dragging`, `data-dnd-disabled`). */
+export interface DraggableState {
+    readonly dragging: boolean;
+    readonly disabled: boolean;
+}
+
+/**
+ * A droppable's state, for rendering: `over` an accepted source hovers it (`data-dnd-over`), a
+ * refused or vetoed one does (`refused`, `data-dnd-refused`), `active` while a drag it would
+ * accept runs (`data-dnd-active`).
+ */
+export interface DroppableState {
+    readonly over: boolean;
+    readonly active: boolean;
+    readonly refused: boolean;
+    readonly disabled: boolean;
+}
+
+// ─── the five verbs (the drag space is the engine) ─────────────────────────────────────────
+
+/** The payload of a key that takes none. */
+export type NoPayload = Record<never, never>;
+
+/** The payload argument of a verb: optional when the payload has no required field. */
+export type VerbArgs<Payload> = NoPayload extends Payload
+    ? [payload?: Payload]
+    : [payload: Payload];
+
+/**
+ * Why a verb said no: `not_found` (an unknown id, no drag), `refused` (the droppable's `accepts`,
+ * its scope or its `disabled`), `vetoed` (a middleware said no), `middleware_error` (one threw).
+ */
+export interface DragError {
+    readonly code: "not_found" | "refused" | "vetoed" | "middleware_error";
+    readonly message?: string;
+}
+
+/** What `run` and `check` return: never a throw. */
+export type CommandResult<Value> =
+    | { readonly ok: true; readonly value: Value }
+    | { readonly ok: false; readonly error: DragError };
+
+/** Who would drop where: the payload of `can`/`check("drop")` and of a drop middleware's `ctx`. */
+export interface DropPayload {
+    readonly draggableId: DragId;
+    readonly droppableId: DragId;
+}
+
+/** What `space.get(key, payload)` reads. */
+export interface DragSpaceGetMap {
+    /** the drag in progress, if any */
+    operation: { payload: NoPayload; result: DragOperation | undefined };
+    /** the ids of the draggables registered in the space */
+    "draggable-ids": { payload: NoPayload; result: readonly DragId[] };
+    /** the ids of the droppables registered in the space */
+    "droppable-ids": { payload: NoPayload; result: readonly DragId[] };
+    /** a draggable's state, undefined for an unknown id */
+    "draggable-state-by": {
+        payload: { readonly draggableId: DragId };
+        result: DraggableState | undefined;
+    };
+    /** a droppable's state, undefined for an unknown id */
+    "droppable-state-by": {
+        payload: { readonly droppableId: DragId };
+        result: DroppableState | undefined;
+    };
+}
+
+/** What `space.is(key, payload)` asks: each question's payload. */
+export interface DragSpaceIsMap {
+    /** a drag runs in the space */
+    dragging: NoPayload;
+    /** that draggable is the one dragged */
+    "draggable-dragging": { readonly draggableId: DragId };
+    /** an accepted source hovers that droppable */
+    "droppable-over": { readonly droppableId: DragId };
+}
+
+/** What `space.run(action, payload)` does: each engine action's payload and result. */
+export interface DragSpaceRunMap {
+    /** cancels the drag in progress (`not_found` when there is none) */
+    cancel: { payload: NoPayload; result: NoPayload };
+}
+
+/** What `space.can`/`space.check(key, payload)` answer, as a dry run. */
+export interface DragSpaceCheckMap {
+    /** whether that draggable may drop on that droppable: its `accepts`, then the middleware */
+    drop: { payload: DropPayload; result: DropPayload };
+}
+
+/** What a drop middleware sees. */
+export interface DropContext {
+    readonly command: "drop";
+    readonly payload: DropPayload;
+    readonly source: DragSource;
+    readonly target: DragTarget;
+    /** true for `can`/`check` and a hover: no side effects then */
+    readonly dryRun: boolean;
+}
+
+/**
+ * A middleware of `space.use`: synchronous, outermost (first added) first. It returns `next()`
+ * to let the drop through, or `{ ok: false, error: { code: "vetoed" } }` to forbid it.
+ */
+export type DropMiddleware = (
+    ctx: DropContext,
+    next: () => CommandResult<DropPayload>,
+) => CommandResult<DropPayload>;

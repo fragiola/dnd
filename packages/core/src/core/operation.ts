@@ -8,9 +8,10 @@ import { pointerWithin } from "./collision";
 import { listen, measure } from "./dom";
 import {
     type ActiveSession,
+    askDrop,
+    type DraggableEntry,
     type DragSpace,
     type DroppableEntry,
-    type Entry,
     emit,
     entriesOf,
     stateOf,
@@ -22,7 +23,6 @@ import type {
     DragInput,
     DragOperation,
     DragPhase,
-    DragSource,
     DragSpaceEvent,
     DroppableEventType,
     Point,
@@ -31,9 +31,7 @@ import type {
 import { createWriter } from "./writer";
 
 /** A draggable, as the operation drives it. @internal */
-export interface SourceEntry extends Entry {
-    source(): DragSource;
-    scope(): string;
+export interface SourceEntry extends DraggableEntry {
     collision(): CollisionStrategy | undefined;
     autoScroll(): AutoScroll | undefined;
     /** whether the source itself follows the pointer (`translate`) */
@@ -63,9 +61,6 @@ export interface Session extends ActiveSession {
     onEnd(...cleanup: (() => void)[]): void;
 }
 
-const isDroppable = (entry: Entry): entry is DroppableEntry =>
-    "droppable" in entry;
-
 /**
  * Starts a drag of `entry` in `space` from `origin`, or nothing when one is in progress there.
  * @internal
@@ -78,7 +73,7 @@ export function startDrag(
 ): Session | undefined {
     const state = stateOf(space);
     if (state.session) return undefined;
-    const doc = space.document;
+    const doc = stateOf(space).document;
     const view = doc.defaultView;
     const element = entry.element;
     const scope = entry.scope();
@@ -93,6 +88,8 @@ export function startDrag(
     let refusing: Candidate[] = [];
     let hovered: Candidate | undefined;
     let target: Candidate | undefined;
+    /** whether the hovered droppable takes the drop: its `accepts`, then the middleware */
+    let allowed = false;
     /** the droppables met, and whether each accepts the source (asked once) */
     const met = new Map<DroppableEntry, boolean>();
     // measured again on the first frame too: the app's render of the drag start (placeholders,
@@ -108,7 +105,7 @@ export function startDrag(
         const refused: Candidate[] = [];
         for (const other of entriesOf(space)) {
             if (
-                !isDroppable(other) ||
+                other.kind !== "droppable" ||
                 other.scope() !== scope ||
                 other.disabled()
             )
@@ -189,19 +186,23 @@ export function startDrag(
             collide({ pointer, dragRect: drag, droppables: accepting }) ??
             collide({ pointer, dragRect: drag, droppables: refusing });
         const before = target;
-        target = hit?.accepted ? hit : undefined;
+        const entered = hit?.entry !== hovered?.entry;
+        const left = entered ? hovered : undefined;
+        const leftAllowed = allowed;
+        // a new target: the middleware is asked again, as a dry run; a veto marks it refused
+        if (entered)
+            allowed =
+                !!hit?.accepted && askDrop(space, source, hit.entry, true).ok;
+        hovered = hit;
+        target = allowed ? hit : undefined;
         session.operation = snapshot("dragging", delta, drag);
-        if (hit?.entry !== hovered?.entry) {
-            hovered?.entry.hover(
-                "drag-leave",
-                event("drag-leave"),
-                hovered.accepted,
+        left?.entry.hover("drag-leave", event("drag-leave"), leftAllowed);
+        if (hit)
+            hit.entry.hover(
+                entered ? "drag-enter" : "drag-over",
+                event(entered ? "drag-enter" : "drag-over"),
+                allowed,
             );
-            hovered = hit;
-            hit?.entry.hover("drag-enter", event("drag-enter"), hit.accepted);
-        } else if (hit) {
-            hit.entry.hover("drag-over", event("drag-over"), hit.accepted);
-        }
         if (target?.entry !== before?.entry) send("drag-over");
         send("drag-move");
         scroller?.move(pointer);
@@ -254,10 +255,23 @@ export function startDrag(
             if (done) return;
             if (frameId !== undefined) frame();
             done = true;
-            session.operation = { ...session.operation, phase: "dropping" };
+            // a refused hover never reports a drop (D5); the middleware runs for real, first, and
+            // a veto drops nowhere: no onDrop, and onDragEnd sees no target
+            const into =
+                target &&
+                met.has(target.entry) &&
+                askDrop(space, source, target.entry, false).ok
+                    ? target
+                    : undefined;
+            if (!into) target = undefined;
+            session.operation = {
+                ...session.operation,
+                phase: "dropping",
+                target: into && session.operation.target,
+                rects: { ...session.operation.rects, target: into?.rect },
+            };
             const dropped = event("drop");
-            // a refused hover never reports a drop (D5)
-            if (target && met.has(target.entry)) target.entry.drop(dropped);
+            into?.entry.drop(dropped);
             entry.emit(dropped);
             emit(space, dropped);
             finish();

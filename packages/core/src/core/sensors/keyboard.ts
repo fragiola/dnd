@@ -18,6 +18,24 @@ const ARROWS: Record<string, readonly [number, number] | undefined> = {
 const grabs = (key: string) => key === " " || key === "Enter";
 
 /**
+ * Takes a key for the drag: its keydown, and the keyup that follows it, are prevented, so Space
+ * or Enter on a `<button>` activator never clicks it (Enter clicks on keydown, Space on keyup).
+ */
+function consume(key: KeyboardEvent, doc: Document): void {
+    key.preventDefault();
+    const remove = listen(
+        doc,
+        "keyup",
+        (up) => {
+            if (up.key !== key.key) return;
+            up.preventDefault();
+            remove();
+        },
+        { capture: true },
+    );
+}
+
+/**
  * The droppables in reading order: rows top to bottom (a box starting above the middle of a
  * row's first box joins that row), each row from its inline start (the right, in RTL).
  */
@@ -65,7 +83,7 @@ export function bindKeyboard(
         let pointer: Point = center(measure(context.element));
         const session = context.start(pointer, "keyboard");
         if (!session) return;
-        grab.preventDefault();
+        consume(grab, activator.ownerDocument);
         const doc = activator.ownerDocument;
         const view = doc.defaultView;
         let at: Candidate | undefined;
@@ -81,7 +99,7 @@ export function bindKeyboard(
                 }
                 const arrow = ARROWS[key.key];
                 if (!grabs(key.key) && key.key !== "Escape" && !arrow) return;
-                key.preventDefault();
+                consume(key, doc);
                 if (key.key === "Escape") session.cancel();
                 else if (!arrow) session.drop();
                 else if (context.keyboard()?.mode === "targets") {

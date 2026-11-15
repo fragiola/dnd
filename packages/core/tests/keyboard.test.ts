@@ -2,6 +2,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { getDragSpace, subscribe } from "../src";
 import type { DragSpaceEvent } from "../src/core/types";
+import { registerDraggable } from "../src/draggable";
 import { draggable, droppable, flush, key, pointer } from "./harness";
 
 // three droppables in a row and one below, and a draggable left of them
@@ -29,7 +30,7 @@ function press(...names: string[]) {
     }
 }
 
-const target = () => getDragSpace(document).getOperation()?.target?.id;
+const target = () => getDragSpace(document).get("operation")?.target?.id;
 
 describe("the keyboard sensor", () => {
     it.each([" ", "Enter"])(
@@ -38,7 +39,7 @@ describe("the keyboard sensor", () => {
             const onDragEnd = vi.fn();
             const { element, events, off } = setup({ id: "s", onDragEnd });
             press(grab);
-            expect(getDragSpace(document).getOperation()?.input).toBe(
+            expect(getDragSpace(document).get("operation")?.input).toBe(
                 "keyboard",
             );
             // from the centre of the draggable (25, 25)
@@ -126,6 +127,35 @@ describe("the keyboard sensor", () => {
         expect(onDragCancel).toHaveBeenCalledTimes(2);
         vi.runAllTimers();
         expect(document.activeElement).toBe(elsewhere);
+    });
+
+    it("never clicks a button activator: the Space and Enter it takes are prevented, keyup too", () => {
+        for (const { id, box } of ROW) droppable({ id }, box);
+        const button = document.createElement("button");
+        document.body.append(button);
+        const clicks = vi.fn();
+        button.addEventListener("click", clicks);
+        const registration = registerDraggable(button, { id: "b" });
+        button.focus();
+        const up = (name: string) => {
+            const event = new KeyboardEvent("keyup", {
+                key: name,
+                bubbles: true,
+                cancelable: true,
+            });
+            button.dispatchEvent(event);
+            return event.defaultPrevented;
+        };
+        expect(key(" ").defaultPrevented).toBe(true);
+        expect(up(" ")).toBe(true);
+        expect(key("ArrowRight").defaultPrevented).toBe(true);
+        expect(up("ArrowRight")).toBe(true);
+        expect(key("Enter").defaultPrevented).toBe(true);
+        expect(up("Enter")).toBe(true);
+        // after the drop, keys are the button's again
+        expect(up(" ")).toBe(false);
+        registration.unregister();
+        expect(clicks).not.toHaveBeenCalled();
     });
 
     it("grabs only from the activator itself, not a key from a field inside it", () => {

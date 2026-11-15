@@ -5,20 +5,16 @@ import { type SourceEntry, startDrag } from "../core/operation";
 import type { SensorContext } from "../core/sensors/context";
 import { bindKeyboard } from "../core/sensors/keyboard";
 import { bindPointer } from "../core/sensors/pointer";
-import {
-    addEntry,
-    DEFAULT_SCOPE,
-    type DragSpace,
-    moveEntry,
-    removeEntry,
-    spaceOf,
-    stateOf,
-} from "../core/space";
+import { DEFAULT_SCOPE, type DragSpace, spaceOf, stateOf } from "../core/space";
 import { createStore } from "../core/store";
+
+export type { DraggableState } from "../core/types";
+
 import type {
     Activation,
     CollisionStrategy,
     DragCancelEvent,
+    DraggableState,
     DragId,
     DragMoveEvent,
     DragStartEvent,
@@ -61,12 +57,6 @@ export interface DraggableOptions {
     readonly onDragCancel?: (event: DragCancelEvent) => void;
 }
 
-/** A draggable's state, for rendering (`data-dnd-dragging`, `data-dnd-disabled`). */
-export interface DraggableState {
-    readonly dragging: boolean;
-    readonly disabled: boolean;
-}
-
 /** What {@link registerDraggable} returns. */
 export type DraggableRegistration = Registration<
     DraggableOptions,
@@ -88,8 +78,11 @@ export function registerDraggable(
         disabled: !!options.disabled,
     });
     const entry: SourceEntry = {
+        kind: "draggable",
         element,
         space: options.space,
+        id: () => current.id,
+        state: store.get,
         source: () => ({
             id: current.id,
             type: current.type,
@@ -147,14 +140,18 @@ export function registerDraggable(
         };
     }
 
-    addEntry(entry);
+    let remove = spaceOf(entry).adapter.register(entry);
     let unbind = bind();
     return {
         update(next) {
             if (!registered) return;
             const rebind = next.handle !== current.handle;
             current = next;
-            moveEntry(entry, next.space);
+            if (next.space !== entry.space) {
+                remove();
+                entry.space = next.space;
+                remove = spaceOf(entry).adapter.register(entry);
+            }
             store.set({ disabled: !!next.disabled });
             if (next.disabled) session()?.cancel();
             if (rebind) {
@@ -167,7 +164,7 @@ export function registerDraggable(
             registered = false;
             session()?.cancel();
             unbind();
-            removeEntry(entry);
+            remove();
         },
         getState: store.get,
         subscribe: store.subscribe,

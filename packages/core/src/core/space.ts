@@ -1,48 +1,56 @@
-// The drag space (D4): one per document, created lazily on first use, or an isolated one from
-// `createDragSpace`. It holds the operation in progress (one at a time) and the page-wide
-// listeners. Registrations without an explicit space live in one registry and belong to the
-// space of their element's *current* document, read when a drag starts: an element Dockable
-// carries into a popout meets the droppables of the popout.
+// The drag space (D4, D5): one per document, created lazily on first use, or an isolated one from
+// `createDragSpace`. It is the library's engine (there is no domain model: the app's data stays
+// the app's), so it speaks the five verbs of the Fragiola model API (`run`, `can`, `check`,
+// `get`, `is`) with `use` (drop middleware) and `subscribe`; what only an adapter calls is under
+// `adapter`. It holds the operation in progress (one at a time) and the page-wide listeners.
+// Registrations without an explicit space live in one registry and belong to the space of their
+// element's *current* document, read when a drag starts: an element Dockable carries into a
+// popout meets the droppables of the popout.
 import type {
+    CommandResult,
+    DraggableState,
     DragId,
     DragListener,
     DragOperation,
     DragSource,
+    DragSpaceCheckMap,
     DragSpaceEvent,
+    DragSpaceGetMap,
+    DragSpaceIsMap,
+    DragSpaceRunMap,
+    DropMiddleware,
+    DropPayload,
     DroppableEventType,
+    DroppableState,
+    VerbArgs,
 } from "./types";
 
 /** The scope of a registration that names none. */
 export const DEFAULT_SCOPE = "default";
 
-/** A drag space: where draggables and droppables of one document (or an explicit group) meet. */
-export interface DragSpace {
-    /** the document its drags run in */
-    readonly document: Document;
-    /** the operation in progress, if any */
-    getOperation(): DragOperation | undefined;
-    /** listens to this space's drag events, optionally of one scope; returns the unsubscribe */
-    subscribe(
-        listener: DragListener,
-        options?: { readonly scope?: string },
-    ): () => void;
-}
-
-/** A registered element, as the space keeps it. @internal */
-export interface Entry {
+/** A registered element, as the space keeps it. */
+interface EntryBase {
     readonly element: HTMLElement;
     /** the explicit space it registered in, if any */
     space: DragSpace | undefined;
+    id(): DragId;
+    scope(): string;
 }
 
-/** A droppable, as the operation drives it. @internal */
-export interface DroppableEntry extends Entry {
-    readonly droppable: true;
-    id(): DragId;
+/** A draggable, as the space keeps it (for adapters). */
+export interface DraggableEntry extends EntryBase {
+    readonly kind: "draggable";
+    source(): DragSource;
+    state(): DraggableState;
+}
+
+/** A droppable, as the space and the operation drive it (for adapters). */
+export interface DroppableEntry extends EntryBase {
+    readonly kind: "droppable";
     data(): unknown;
-    scope(): string;
     disabled(): boolean;
     accepts(source: DragSource): boolean;
+    state(): DroppableState;
     /** a drag it could meet began; `accepted` says whether it would take the source */
     start(accepted: boolean): void;
     hover(
@@ -55,44 +63,175 @@ export interface DroppableEntry extends Entry {
     end(): void;
 }
 
+/** What an adapter registers in a space. */
+export type DragEntry = DraggableEntry | DroppableEntry;
+
+/** What only an adapter calls (`registerDraggable` and `registerDroppable` do). */
+export interface DragSpaceAdapter {
+    /** adds an entry to the space; returns its removal (idempotent) */
+    register(entry: DragEntry): () => void;
+}
+
+/** A drag space: the engine where draggables and droppables of one document (or a group) meet. */
+export interface DragSpace {
+    /** does an engine action: `cancel` */
+    run<K extends keyof DragSpaceRunMap>(
+        key: K,
+        ...args: VerbArgs<DragSpaceRunMap[K]["payload"]>
+    ): CommandResult<DragSpaceRunMap[K]["result"]>;
+    /** whether it would be allowed (`drop`): `check(...).ok` */
+    can<K extends keyof DragSpaceCheckMap>(
+        key: K,
+        payload: DragSpaceCheckMap[K]["payload"],
+    ): boolean;
+    /** what would happen (`drop`), as a dry run through the middleware, with the reason when not */
+    check<K extends keyof DragSpaceCheckMap>(
+        key: K,
+        payload: DragSpaceCheckMap[K]["payload"],
+    ): CommandResult<DragSpaceCheckMap[K]["result"]>;
+    /** reads a fact of the space */
+    get<K extends keyof DragSpaceGetMap>(
+        key: K,
+        ...args: VerbArgs<DragSpaceGetMap[K]["payload"]>
+    ): DragSpaceGetMap[K]["result"];
+    /** asks a yes-or-no question */
+    is<K extends keyof DragSpaceIsMap>(
+        key: K,
+        ...args: VerbArgs<DragSpaceIsMap[K]>
+    ): boolean;
+    /** adds a drop middleware; returns its removal */
+    use(middleware: DropMiddleware): () => void;
+    /** listens to this space's drag events, optionally of one scope; returns the unsubscribe */
+    subscribe(
+        listener: DragListener,
+        options?: { readonly scope?: string },
+    ): () => void;
+    readonly adapter: DragSpaceAdapter;
+}
+
 /** What the operation in progress exposes to the space and the registrations. @internal */
 export interface ActiveSession {
     readonly operation: DragOperation;
     /** the droppables changed (registered, removed, disabled): measure them again */
     invalidate(): void;
-    readonly entry: Entry;
+    readonly entry: DraggableEntry;
     cancel(): void;
 }
 
-interface SpaceState extends DragSpace {
+interface SpaceState {
+    readonly document: Document;
     session: ActiveSession | undefined;
     readonly listeners: Set<{
         readonly listener: DragListener;
         readonly scope?: string;
     }>;
+    readonly middleware: DropMiddleware[];
     /** the entries of an explicit space; a document's space reads the shared registry */
-    readonly entries: Set<Entry> | undefined;
+    readonly entries: Set<DragEntry> | undefined;
 }
 
 // created on first use, never on import (D4)
 let spaces: WeakMap<Document, DragSpace> | undefined;
-let implicit: Set<Entry> | undefined;
+let implicit: Set<DragEntry> | undefined;
+let states: WeakMap<DragSpace, SpaceState> | undefined;
 
-function makeSpace(doc: Document, entries?: Set<Entry>): DragSpace {
-    const space: SpaceState = {
+const fail = (
+    code: "not_found" | "refused",
+    message: string,
+): CommandResult<never> => ({ ok: false, error: { code, message } });
+
+function makeSpace(doc: Document, entries?: Set<DragEntry>): DragSpace {
+    const state: SpaceState = {
         document: doc,
         session: undefined,
         listeners: new Set(),
+        middleware: [],
         entries,
-        getOperation: () => space.session?.operation,
-        subscribe(listener, options) {
-            const record = { listener, scope: options?.scope };
-            space.listeners.add(record);
+    };
+    const find = <Kind extends DragEntry["kind"]>(kind: Kind, id: unknown) =>
+        entriesOf(space).find(
+            (entry) => entry.kind === kind && entry.id() === id,
+        ) as Extract<DragEntry, { kind: Kind }> | undefined;
+    const ids = (kind: DragEntry["kind"]) =>
+        entriesOf(space)
+            .filter((entry) => entry.kind === kind)
+            .map((entry) => entry.id());
+    // the registries are plain switches: one key, one case
+    type Payload = Partial<DropPayload>;
+    const space: DragSpace = {
+        run() {
+            const session = state.session;
+            if (!session) return fail("not_found", "No drag is in progress.");
+            session.cancel();
+            return { ok: true, value: {} };
+        },
+        can: (key, payload) => space.check(key, payload).ok,
+        check(_key, payload) {
+            const source = find("draggable", payload.draggableId);
+            const target = find("droppable", payload.droppableId);
+            if (!source || !target)
+                return fail("not_found", "No such draggable or droppable.");
+            if (
+                target.scope() !== source.scope() ||
+                target.disabled() ||
+                !target.accepts(source.source())
+            )
+                return fail("refused", "The droppable does not take it.");
+            return askDrop(space, source.source(), target, true);
+        },
+        get(key, ...[payload]) {
+            const { draggableId, droppableId } = (payload ?? {}) as Payload;
+            switch (key) {
+                case "operation":
+                    return state.session?.operation;
+                case "draggable-ids":
+                    return ids("draggable");
+                case "droppable-ids":
+                    return ids("droppable");
+                case "draggable-state-by":
+                    return find("draggable", draggableId)?.state();
+                default:
+                    return find("droppable", droppableId)?.state();
+            }
+        },
+        is(key, ...[payload]) {
+            const { draggableId, droppableId } = (payload ?? {}) as Payload;
+            switch (key) {
+                case "dragging":
+                    return !!state.session;
+                case "draggable-dragging":
+                    return state.session?.entry.id() === draggableId;
+                default:
+                    return !!find("droppable", droppableId)?.state().over;
+            }
+        },
+        use(middleware) {
+            state.middleware.push(middleware);
             return () => {
-                space.listeners.delete(record);
+                const index = state.middleware.indexOf(middleware);
+                if (index >= 0) state.middleware.splice(index, 1);
             };
         },
+        subscribe(listener, options) {
+            const record = { listener, scope: options?.scope };
+            state.listeners.add(record);
+            return () => {
+                state.listeners.delete(record);
+            };
+        },
+        adapter: {
+            register(entry) {
+                implicit ??= new Set();
+                const set = state.entries ?? implicit;
+                set.add(entry);
+                return () => {
+                    set.delete(entry);
+                };
+            },
+        },
     };
+    states ??= new WeakMap();
+    states.set(space, state);
     return space;
 }
 
@@ -120,45 +259,21 @@ export function createDragSpace(options: CreateDragSpaceOptions): DragSpace {
 
 /** A space's internal state. @internal */
 export function stateOf(space: DragSpace): SpaceState {
-    return space as SpaceState;
+    return states?.get(space) as SpaceState;
 }
 
 /** The space an entry meets others in now. @internal */
-export function spaceOf(entry: Entry): DragSpace {
+export function spaceOf(entry: DragEntry): DragSpace {
     return entry.space ?? getDragSpace(entry.element.ownerDocument);
 }
 
 /** The entries registered in `space`. @internal */
-export function entriesOf(space: DragSpace): Entry[] {
-    const own = stateOf(space).entries;
-    if (own) return [...own];
+export function entriesOf(space: DragSpace): DragEntry[] {
+    const { entries, document: doc } = stateOf(space);
+    if (entries) return [...entries];
     return [...(implicit ?? [])].filter(
-        (entry) =>
-            !entry.space && entry.element.ownerDocument === space.document,
+        (entry) => !entry.space && entry.element.ownerDocument === doc,
     );
-}
-
-/** Adds an entry to its space's registry. @internal */
-export function addEntry(entry: Entry): void {
-    if (entry.space) stateOf(entry.space).entries?.add(entry);
-    else {
-        implicit ??= new Set();
-        implicit.add(entry);
-    }
-}
-
-/** Removes an entry from its space's registry (idempotent). @internal */
-export function removeEntry(entry: Entry): void {
-    if (entry.space) stateOf(entry.space).entries?.delete(entry);
-    else implicit?.delete(entry);
-}
-
-/** Moves an entry to another explicit space, or to its document's (`undefined`). @internal */
-export function moveEntry(entry: Entry, space: DragSpace | undefined): void {
-    if (entry.space === space) return;
-    removeEntry(entry);
-    entry.space = space;
-    addEntry(entry);
 }
 
 /** Tells `space`'s listeners of `event`, those of its scope or of none. @internal */
@@ -166,6 +281,41 @@ export function emit(space: DragSpace, event: DragSpaceEvent): void {
     for (const { listener, scope } of [...stateOf(space).listeners]) {
         if (scope === undefined || scope === event.operation.scope)
             listener(event);
+    }
+}
+
+/**
+ * Asks the middleware chain whether `source` may drop on `target`, outermost first; a dry run
+ * for `can`/`check` and a hover, the real one on a release. Never throws. @internal
+ */
+export function askDrop(
+    space: DragSpace,
+    source: DragSource,
+    target: DroppableEntry,
+    dryRun: boolean,
+): CommandResult<DropPayload> {
+    const chain = [...stateOf(space).middleware];
+    const payload = { draggableId: source.id, droppableId: target.id() };
+    const ctx = {
+        command: "drop" as const,
+        payload,
+        source,
+        target: { id: payload.droppableId, data: target.data() },
+        dryRun,
+    };
+    const next = (index: number): CommandResult<DropPayload> => {
+        const middleware = chain[index];
+        return middleware
+            ? middleware(ctx, () => next(index + 1))
+            : { ok: true, value: payload };
+    };
+    try {
+        return next(0);
+    } catch (error) {
+        return {
+            ok: false,
+            error: { code: "middleware_error", message: String(error) },
+        };
     }
 }
 
