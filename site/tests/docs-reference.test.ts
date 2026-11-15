@@ -58,7 +58,7 @@ describe("the API pages", () => {
     it("name every attribute the hooks set", () => {
         const pages = [
             ["packages/react/src/draggable/useDraggable.ts", "api/draggable"],
-            ["packages/react/src/draggable/DragHandle.tsx", "api/drag-handle"],
+            ["packages/react/src/DragHandle.tsx", "api/drag-handle"],
             ["packages/react/src/droppable/useDroppable.ts", "api/droppable"],
         ] as const;
         const states = page("concepts/state-attributes");

@@ -1,12 +1,13 @@
-// A drag handle (D9): inside a draggable's element, the only place a drag starts, and its tab
-// stop. It finds its draggable through the DOM (`./handles`), never a context, so the handle may
-// sit deep inside the draggable, across any component boundary.
-import type { DraggableState } from "@fragiola/dnd/draggable";
+// A drag handle (D9): inside a drag source's element (a draggable, a sortable or a swappable item),
+// the only place a drag starts, and its tab stop. It finds its source through the DOM
+// (`./utils/handles`), never a context, so the handle may sit deep inside the source, across any
+// component boundary. It is a shared part: each capability's entry re-exports it.
+import type { DraggableState } from "@fragiola/dnd";
 import * as React from "react";
-import { createSlot, useSlotState } from "../utils/useCoreState";
-import type { WrapperProps } from "../utils/useRender";
-import { useWrap } from "../utils/useWrap";
-import { addHandle, type HandleLink, type HandleOwner } from "./handles";
+import { addHandle, type HandleLink, type HandleOwner } from "./utils/handles";
+import { createSlot, useSlotState } from "./utils/useCoreState";
+import type { WrapperProps } from "./utils/useRender";
+import { useWrap } from "./utils/useWrap";
 
 /** Props of {@link DragHandle}. */
 export interface DragHandleProps extends WrapperProps<DraggableState> {
@@ -60,7 +61,7 @@ function useDragHandle(describedBy: string | undefined) {
     React.useEffect(() => {
         if (process.env.NODE_ENV !== "production" && !live.linked)
             console.error(
-                '<DragHandle> is not inside a draggable\'s element (`data-dnd-part="draggable"`): it has no effect.',
+                '<DragHandle> is not inside a draggable, sortable or swappable element (`data-dnd-part="draggable"`, `"sortable"` or `"swappable"`): it has no effect.',
             );
     }, [live]);
     const state = useSlotState(live.slot);
@@ -79,8 +80,8 @@ function useDragHandle(describedBy: string | undefined) {
 }
 
 /**
- * Makes its single child the only place its draggable's drag starts, and its tab stop. It must
- * be inside a draggable's element; it renders no element of its own.
+ * Makes its single child the only place its drag source's drag starts, and its tab stop. It must
+ * be inside a draggable, sortable or swappable element; it renders no element of its own.
  */
 export function DragHandle(props: DragHandleProps): React.ReactNode {
     const { describedBy, ...wrapper } = props;

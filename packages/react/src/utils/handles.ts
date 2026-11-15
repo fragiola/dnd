@@ -1,12 +1,12 @@
-// How a `DragHandle` and its draggable find each other without a context (D4): through the DOM.
-// A draggable's element carries `data-dnd-part="draggable"`; a handle is linked to the closest
-// one around it. Refs attach children first, so each side looks for the other when it attaches:
+// How a `DragHandle` and its drag source find each other without a context (D4): through the DOM.
+// A source's element carries `data-dnd-part="draggable"` (or `"sortable"`, `"swappable"`); a handle
+// is linked to the closest one around it. Refs attach children first, so each side looks for the other when it attaches:
 // a handle attached after its draggable finds it, and a draggable adopts the handles it already
 // contains. A component boundary between them changes nothing.
-import type { DraggableState } from "@fragiola/dnd/draggable";
-import type { StateSource } from "../utils/useCoreState";
+import type { DraggableState } from "@fragiola/dnd";
+import type { StateSource } from "./useCoreState";
 
-/** A draggable's element, as its handles see it. */
+/** A drag source's element (a draggable, a sortable or a swappable item), as its handles see it. */
 export interface HandleOwner {
     /** makes `handle` the only place a drag starts (null: the element again) */
     setHandle(handle: HTMLElement | null): void;
@@ -20,7 +20,8 @@ export interface HandleLink {
     disconnect(owner: HandleOwner): void;
 }
 
-const DRAGGABLE = '[data-dnd-part~="draggable"]';
+const SOURCE =
+    '[data-dnd-part~="draggable"],[data-dnd-part~="sortable"],[data-dnd-part~="swappable"]';
 
 let owners: WeakMap<Element, HandleOwner> | undefined;
 let links: WeakMap<Element, HandleLink> | undefined;
@@ -37,7 +38,7 @@ function join(link: HandleLink, owner: HandleOwner): void {
 
 /** The draggable element a handle belongs to: the closest one around it. */
 function ownerElement(handle: Element): Element | null {
-    return handle.parentElement?.closest(DRAGGABLE) ?? null;
+    return handle.parentElement?.closest(SOURCE) ?? null;
 }
 
 /** The handle inside `element` that belongs to it (not to a draggable nested in it), if any. */

@@ -72,6 +72,17 @@ const DRAGGABLE = [
     "useDraggable",
     "addOwner",
 ];
+/** Names only the draggable's own code carries (the sensors and `useSource` are shared). */
+const DRAGGABLE_ONLY = ["registerDraggable", "useDraggable", "onDragStart"];
+/** Names only the sortable capability's code carries, core and React. */
+const SORTABLE = ["registerSortable", "useSortable", "createSort", "onSortEnd"];
+/** Names only the swappable capability's code carries, core and React. */
+const SWAPPABLE = [
+    "registerSwappable",
+    "useSwappable",
+    "createSwap",
+    "data-dnd-swap-target",
+];
 /** Names only the droppable capability's code carries, core and React. */
 const DROPPABLE = ["registerDroppable", "onDragEnter", "useDroppable"];
 /** The shared entry's own parts, which a capability alone never ships. */
@@ -83,7 +94,44 @@ describe("bundle isolation of the React entries", () => {
             `import { Draggable } from ${entry("draggable")};\nexport const used = Draggable;`,
         );
         for (const name of DRAGGABLE) expect(code, name).toContain(name);
-        for (const name of [...DROPPABLE, ...SHARED])
+        for (const name of [...DROPPABLE, ...SORTABLE, ...SWAPPABLE, ...SHARED])
+            expect(code, name).not.toContain(name);
+    });
+
+    it("ships no swappable, draggable or droppable code with only Sortable", async () => {
+        const code = await bundle(
+            `import { Sortable } from ${entry("sortable")};\nexport const used = Sortable;`,
+        );
+        for (const name of [...SORTABLE, "bindPointer", "addOwner"])
+            expect(code, name).toContain(name);
+        for (const name of [
+            ...DRAGGABLE_ONLY,
+            ...DROPPABLE,
+            ...SWAPPABLE,
+            ...SHARED,
+            "DragHandle",
+            "SortableGroup",
+            "horizontalList",
+            "arrayMove",
+        ])
+            expect(code, name).not.toContain(name);
+    });
+
+    it("ships no sortable, draggable or droppable code with only Swappable", async () => {
+        const code = await bundle(
+            `import { Swappable } from ${entry("swappable")};\nexport const used = Swappable;`,
+        );
+        for (const name of [...SWAPPABLE, "bindPointer", "addOwner"])
+            expect(code, name).toContain(name);
+        for (const name of [
+            ...DRAGGABLE_ONLY,
+            ...DROPPABLE,
+            ...SORTABLE,
+            ...SHARED,
+            "DragHandle",
+            "verticalList",
+            "swapItems",
+        ])
             expect(code, name).not.toContain(name);
     });
 
@@ -94,6 +142,8 @@ describe("bundle isolation of the React entries", () => {
         for (const name of DROPPABLE) expect(code, name).toContain(name);
         for (const name of [
             ...DRAGGABLE,
+            ...SORTABLE,
+            ...SWAPPABLE,
             ...SHARED,
             "DragHandle",
             "setPointerCapture",
@@ -107,12 +157,24 @@ describe("bundle isolation of the React entries", () => {
         );
         for (const name of ["DragOverlay", "overlayStyle"])
             expect(code, name).toContain(name);
-        for (const name of [...DRAGGABLE, ...DROPPABLE, "DragHandle"])
+        for (const name of [
+            ...DRAGGABLE,
+            ...DROPPABLE,
+            ...SORTABLE,
+            ...SWAPPABLE,
+            "DragHandle",
+        ])
             expect(code, name).not.toContain(name);
     });
 
     it("creates nothing on import: an entry imported for nothing bundles to nothing", async () => {
-        for (const name of ["draggable", "droppable", undefined]) {
+        for (const name of [
+            "draggable",
+            "droppable",
+            "sortable",
+            "swappable",
+            undefined,
+        ]) {
             const code = await bundle(`import ${entry(name)};`);
             expect(code.trim(), name).toBe("");
         }

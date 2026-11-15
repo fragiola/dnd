@@ -1,8 +1,8 @@
 # @fragiola/dnd-react
 
 Composable React 19 drag and drop for **DnD**, the headless, extremely light drag and drop of the
-Fragiola family: draggables, droppables, drag handles and an optional overlay, through mouse, touch,
-pen and the keyboard.
+Fragiola family: draggables, droppables, sortable lists and grids, swappable items, drag handles and
+an optional overlay, through mouse, touch, pen and the keyboard.
 
 DnD is **headless**. It ships the behaviour, the accessibility and the wrappers, and **no CSS, no
 icons, no rendered overlays of its own look and no text**: a wrapper renders no HTML of its own,
@@ -36,6 +36,8 @@ the core's entry of the same name.
 | `@fragiola/dnd-react`           | `DragOverlay`, `useDragMonitor`, `useDragSpace`, the types `WrapperProps`, `RenderProp`, `RenderedProps` (and the whole shared core) |
 | `@fragiola/dnd-react/draggable` | `Draggable`, `DragHandle`, `useDraggable` (and `registerDraggable`)                                                                  |
 | `@fragiola/dnd-react/droppable` | `Droppable`, `useDroppable` (and `registerDroppable`)                                                                                |
+| `@fragiola/dnd-react/sortable`  | `Sortable`, `SortableGroup`, `DragHandle`, `useSortable`, `useSortableGroup` (and `registerSortable`, the strategies and helpers)    |
+| `@fragiola/dnd-react/swappable` | `Swappable`, `DragHandle`, `useSwappable` (and `registerSwappable`, `swapItems`, `swapBetween`)                                      |
 
 ## A minimal drag and drop
 
