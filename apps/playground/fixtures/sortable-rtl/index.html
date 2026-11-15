@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en" dir="rtl">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Right-to-left sortable and swappable fixture</title>
+        <style>
+            /* the fixture's own few lines: boxes to aim at, and room around them */
+            body { margin: 0; padding: 16px 40px; font: 13px/1.2 system-ui, sans-serif; }
+            section { margin-block: 12px; }
+            ul { list-style: none; margin: 0; padding: 0; }
+            .column { display: flex; flex-direction: column; gap: 8px; width: 120px; min-height: 40px; }
+            .row { display: flex; gap: 8px; }
+            .grid { display: grid; grid-template-columns: repeat(3, 80px); gap: 8px; }
+            .board { display: flex; gap: 40px; align-items: flex-start; }
+            .tall { min-height: 160px; outline: 1px dashed #06c; }
+            .item { box-sizing: border-box; min-width: 80px; height: 40px; outline: 1px solid #888; background: #eee; }
+            [data-dnd-dragging] { outline-width: 3px; }
+            [data-dnd-swap-target] { outline-color: #06c; }
+        </style>
+    </head>
+    <body>
+        <div id="root"></div>
+        <script type="module">
+            import { mountSortableFixture } from "../sortable.tsx";
+            mountSortableFixture();
+        </script>
+    </body>
+</html>
