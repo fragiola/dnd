@@ -63,11 +63,37 @@ function edgeStep(
     return 0;
 }
 
-/** Scrolls `scroller` by `delta` along `axis` at once; says whether it moved. */
-function scrollAlong(scroller: Element, axis: "x" | "y", delta: number) {
+/** How far a scroll container may scroll during a drag, measured when it starts. */
+interface Extent {
+    readonly x: readonly [number, number];
+    readonly y: readonly [number, number];
+}
+
+/**
+ * The scroll range of `scroller` now. The dragged element's `translate` grows a container's
+ * scrollable area as it nears an edge: measured once, at the drag's start, the range never
+ * feeds on it. In RTL, `scrollLeft` runs from `-max` to 0.
+ */
+function extentOf(scroller: Element, view: Window | null): Extent {
+    const x = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
+    const y = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+    const rtl = view?.getComputedStyle(scroller).direction === "rtl";
+    return { x: rtl ? [-x, 0] : [0, x], y: [0, y] };
+}
+
+/** Scrolls `scroller` by `delta` along `axis`, within `extent`; says whether it moved. */
+function scrollAlong(
+    scroller: Element,
+    axis: "x" | "y",
+    delta: number,
+    extent: Extent,
+) {
     const key = axis === "y" ? "scrollTop" : "scrollLeft";
     const before = scroller[key];
-    scroller[key] = before + delta;
+    const [min, max] = extent[axis];
+    const next = Math.max(min, Math.min(max, before + delta));
+    if (next === before) return false;
+    scroller[key] = next;
     return scroller[key] !== before;
 }
 
@@ -79,6 +105,9 @@ export function autoScroll(options: AutoScrollOptions = {}): AutoScroll {
             const doc = element.ownerDocument;
             const view = doc.defaultView;
             const scrollers = scrollersOf(element);
+            const extents = scrollers.map((scroller) =>
+                extentOf(scroller, view),
+            );
             let pointer: Point | undefined;
             let frame: number | undefined;
             const tick = () => {
@@ -86,7 +115,7 @@ export function autoScroll(options: AutoScrollOptions = {}): AutoScroll {
                 if (!pointer || !view) return;
                 let moved = false;
                 for (const axis of ["x", "y"] as const) {
-                    for (const scroller of scrollers) {
+                    for (const [index, scroller] of scrollers.entries()) {
                         // the page's box is the viewport, any other its own box
                         const box =
                             scroller === doc.scrollingElement
@@ -114,7 +143,12 @@ export function autoScroll(options: AutoScrollOptions = {}): AutoScroll {
                                       speed,
                                   );
                         // the nearest container that can still scroll that way
-                        if (step && scrollAlong(scroller, axis, step)) {
+                        const extent = extents[index];
+                        if (
+                            step &&
+                            extent &&
+                            scrollAlong(scroller, axis, step, extent)
+                        ) {
                             moved = true;
                             break;
                         }

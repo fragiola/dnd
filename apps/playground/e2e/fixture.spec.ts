@@ -213,35 +213,38 @@ for (const dir of DIRS) {
             ]);
         });
 
-        test("auto-scrolls a scroll container near its edge, then drops in what it revealed", async ({
+        test("auto-scrolls a scroll container near its edge to its end, never past it, and drops there", async ({
             page,
         }) => {
             const scroller = page.getByTestId("scroller");
             const box = await scroller.boundingBox();
+            const extent = () =>
+                scroller.evaluate((el) => ({
+                    top: el.scrollTop,
+                    max: el.scrollHeight - el.clientHeight,
+                }));
+            const { max } = await extent();
+            expect(max).toBeGreaterThan(400);
             await press(page, page.getByTestId("scroll-card"));
-            const bottom = {
-                x: (box?.x ?? 0) + (box?.width ?? 0) / 2,
-                y: (box?.y ?? 0) + (box?.height ?? 0) - 8,
-            };
-            await page.mouse.move(bottom.x, bottom.y, { steps: 8 });
-            // it scrolls while the pointer stays in the edge zone, until `deep` comes up
-            const deep = page.getByTestId("deep");
+            // straight to the bottom edge, and stay there
+            await page.mouse.move(
+                (box?.x ?? 0) + (box?.width ?? 0) / 2,
+                (box?.y ?? 0) + (box?.height ?? 0) - 8,
+                { steps: 8 },
+            );
             await expect
-                .poll(
-                    async () => {
-                        const at = await deep.boundingBox();
-                        return (at?.y ?? Infinity) - (box?.y ?? 0);
-                    },
-                    { timeout: 10_000, intervals: [50] },
-                )
-                .toBeLessThan(110);
-            expect(
-                await scroller.evaluate((el) => el.scrollTop),
-            ).toBeGreaterThan(300);
-            // out of the edge zone, onto what it revealed
-            await moveTo(page, deep);
-            await expect(deep).toHaveAttribute("data-dnd-over", "");
+                .poll(async () => (await extent()).top, { timeout: 5000 })
+                .toBe(max);
+            // the dragged card's translate never feeds the scroll: it stays at the end it had
+            await page.waitForTimeout(400);
+            expect((await extent()).top).toBe(max);
+            await expect(page.getByTestId("deep")).toHaveAttribute(
+                "data-dnd-over",
+                "",
+            );
             await page.mouse.up();
+            // the scroll extent is the one the container had before the drag
+            expect((await extent()).max).toBe(max);
             expect(await logOf(page)).toEqual([
                 "drop scroll-card on deep",
                 "end scroll-card",

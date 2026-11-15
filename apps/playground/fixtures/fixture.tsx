@@ -18,7 +18,7 @@ import {
 } from "react";
 import { createRoot } from "react-dom/client";
 
-const scroll = autoScroll({ threshold: 40, speed: 4 });
+const scroll = autoScroll({ threshold: 40, speed: 12 });
 
 /** A drop rule from React, through the document's space: nothing drops on `zone-veto`. */
 function Rules() {
@@ -180,7 +180,6 @@ function Fixture() {
                     </Draggable>
                     <div className="spacer" />
                     {zone("deep", "scroll")}
-                    <div className="spacer" />
                 </div>
             </section>
             <section className="row">
