@@ -151,11 +151,8 @@ const COLUMNS = ["todo", "done"];
     id={tile}
     index={index}
     group="tiles"
-    onSwap={(event) =>
-        event.target &&
-        setTiles((now) =>
-            swapItems(now, event.source.index, event.target.index),
-        )
+    onSwap={({ source, target }) =>
+        target && setTiles((now) => swapItems(now, source.index, target.index))
     }
 >
     <div className="tile data-dnd-swap-target:outline" />

@@ -16,7 +16,7 @@ import { Swappable, swapItems } from "@fragiola/dnd-react/swappable";
         id={tile.id}
         index={index}
         group="tiles"
-        onSwap={(event) => event.target && setTiles((now) => swapItems(now, event.source.index, event.target.index))}
+        onSwap={({ source, target }) => target && setTiles((now) => swapItems(now, source.index, target.index))}
     >
         <div aria-label={tile.name} className="tile data-dnd-swap-target:outline" />
     </Swappable>
