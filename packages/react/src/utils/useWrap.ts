@@ -81,26 +81,54 @@ export function useWrap<State>(
     const elementProps = (element?.props ?? {}) as AnyProps;
     const elementRef = elementProps.ref as React.Ref<HTMLElement> | undefined;
 
-    // the consumers' refs are read when the element attaches, not memoized on their identity: an
-    // inline callback ref must not make React detach and re-attach the wrapper's ref (and its
-    // registration) on every render (a consumer ref that appears later re-attaches once)
+    // the wrapper's own ref attaches once per element: an inline callback ref of the consumer must
+    // not make React detach and re-attach it (and its registration) on every render. The
+    // consumers' refs (the wrapper's `ref` and the element's own) are attached beside it, and
+    // follow their changes after each render, as React does for a plain element's ref
     const consumerRefs = React.useRef<(React.Ref<HTMLElement> | undefined)[]>(
         [],
     );
     consumerRefs.current = [wrapperRef, elementRef];
-    const hasConsumerRef = wrapperRef != null || elementRef != null;
     const attached = React.useRef(false);
+    const bound = React.useRef<
+        | {
+              readonly node: HTMLElement;
+              readonly refs: (React.Ref<HTMLElement> | undefined)[];
+              readonly detach: () => void;
+          }
+        | undefined
+    >(undefined);
+    const bind = React.useCallback((node: HTMLElement) => {
+        const refs = consumerRefs.current;
+        bound.current = {
+            node,
+            refs,
+            detach: mergeRefs(...refs)(node) as () => void,
+        };
+    }, []);
     const internalRef = internal.ref;
     const ref = React.useMemo<React.RefCallback<HTMLElement>>(
         () => (node: HTMLElement | null) => {
-            if (node) attached.current = true;
-            return mergeRefs<HTMLElement>(
-                internalRef,
-                ...(hasConsumerRef ? consumerRefs.current : []),
-            )(node);
+            if (!node) return;
+            attached.current = true;
+            const detachInternal = mergeRefs(internalRef)(node) as () => void;
+            bind(node);
+            return () => {
+                bound.current?.detach();
+                bound.current = undefined;
+                detachInternal();
+            };
         },
-        [internalRef, hasConsumerRef],
+        [internalRef, bind],
     );
+    React.useLayoutEffect(() => {
+        const current = bound.current;
+        const refs = consumerRefs.current;
+        if (!current || refs.every((each, i) => each === current.refs[i]))
+            return;
+        current.detach();
+        bind(current.node);
+    });
     const checkRef = options.checkRef !== false;
     React.useEffect(() => {
         if (

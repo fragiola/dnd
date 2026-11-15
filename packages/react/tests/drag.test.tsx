@@ -320,6 +320,8 @@ describe("a drag handle", () => {
 describe("the hooks' lifecycle", () => {
     it("updates options without re-registering, and reads the latest inline callback", () => {
         const calls: string[] = [];
+        const adapter = getDragSpace(document).adapter;
+        const register = vi.spyOn(adapter, "register");
         const { rerender } = render(
             <LabelledCard label="first" calls={calls} />,
         );
@@ -327,13 +329,17 @@ describe("the hooks' lifecycle", () => {
         placeAll(BOXES);
         const press = dragCard(60, 25, false);
         act(() => press.release(60, 25));
-        expect(calls).toEqual(["attach", "second"]);
+        // the inline consumer ref follows each render, as on a plain element; the registration
+        // stays the same
+        expect(calls).toEqual(["attach", "attach", "second"]);
         rerender(<LabelledCard label="third" disabled calls={calls} />);
         const card = screen.getByTestId("card");
         expect(card.dataset.dndDisabled).toBe("");
         expect(card.getAttribute("aria-disabled")).toBe("true");
         dragCard(60, 25);
-        expect(calls).toEqual(["attach", "second"]);
+        expect(calls).toEqual(["attach", "attach", "second", "attach"]);
+        expect(register).toHaveBeenCalledOnce();
+        register.mockRestore();
     });
 
     it("registers once under StrictMode, and unregisters on unmount", () => {

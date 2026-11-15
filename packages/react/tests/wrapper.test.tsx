@@ -140,6 +140,28 @@ describe("the merge", () => {
         expect(calls).toEqual(["child after the claim"]);
     });
 
+    it("follows a consumer ref that changes, without re-registering", () => {
+        const a = React.createRef<HTMLElement>();
+        const b = React.createRef<HTMLElement>();
+        const own = React.createRef<HTMLDivElement>();
+        const { rerender } = render(
+            <Draggable id="x" ref={a}>
+                <div data-testid="x" />
+            </Draggable>,
+        );
+        const element = screen.getByTestId("x");
+        expect(a.current).toBe(element);
+        rerender(
+            <Draggable id="x" ref={b}>
+                <div data-testid="x" ref={own} />
+            </Draggable>,
+        );
+        expect(a.current).toBeNull();
+        expect(b.current).toBe(element);
+        expect(own.current).toBe(element);
+        expect(element.dataset.dndPart).toBe("draggable");
+    });
+
     it("composes the handlers of a `render` element after its own props", () => {
         const onClick = vi.fn();
         render(
