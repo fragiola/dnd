@@ -1,8 +1,8 @@
 // The unstyled sortable and swappable fixture Playwright drives, the same page left-to-right
 // (`sortable/`) and right-to-left (`sortable-rtl/`): a vertical list, a horizontal list and a grid
 // with no wrapper around them, a kanban whose columns accept each other (the empty one through
-// `SortableGroup`) beside a column that refuses them, swaps within and across groups, and the
-// render counter. The app owns the data: each list applies `onSortEnd` / `onSwap` with the
+// `SortableGroup`) beside a column that refuses them, swaps within and across groups, a list in a
+// scroll container (keyboard steps scroll their slot into view), and the render counter. The app owns the data: each list applies `onSortEnd` / `onSwap` with the
 // helpers, and writes one line to `log` per end (never during a preview, which commits nothing).
 import {
     grid,
@@ -49,6 +49,7 @@ function Fixture() {
         done: [],
         s1: ids("s1", 4),
         s2: ids("s2", 2),
+        sc: ids("sc", 6),
     });
     const [log, setLog] = useState<string[]>([]);
     const sorted = (event: SortEndEvent) => {
@@ -158,6 +159,13 @@ function Fixture() {
             <p>
                 {order("s1")} | {order("s2")}
             </p>
+            <section>
+                {order("sc")}
+                {/* taller than its box: a keyboard step scrolls its slot into view */}
+                <ul data-testid="sc" className="column scroll">
+                    {items("sc", "sc")}
+                </ul>
+            </section>
             <ol data-testid="log">
                 {log.map((line, index) => (
                     // the log only grows

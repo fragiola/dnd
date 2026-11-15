@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { getDragSpace, subscribe } from "../src";
 import type { DragSpaceEvent } from "../src/core/types";
 import { registerDraggable } from "../src/draggable";
-import { draggable, droppable, flush, key, pointer } from "./harness";
+import { draggable, droppable, flush, key, pointer, scroller } from "./harness";
 
 // three droppables in a row and one below, and a draggable left of them
 const ROW = [
@@ -236,6 +236,38 @@ describe("the keyboard sensor", () => {
         expect(target()).toBe("b");
         press("ArrowDown", "ArrowDown");
         expect(target()).toBe("d");
+        press("Escape");
+    });
+
+    it("scrolls the next droppable into view, and the pointer follows it there (targets)", () => {
+        // a list 150 px tall showing a and b; c is below its fold
+        const list = scroller({ x: 0, y: 0, width: 200, height: 150 }, 400);
+        for (const [id, y] of [
+            ["a", 0],
+            ["b", 100],
+            ["c", 250],
+        ] as const)
+            droppable({ id }, { x: 0, y, width: 200, height: 90 }, list);
+        const { element } = draggable(
+            { id: "s", keyboard: { mode: "targets" } },
+            { x: 300, y: 0, width: 50, height: 50 },
+        );
+        element.focus();
+        press(" ", "ArrowDown", "ArrowDown");
+        expect(target()).toBe("b");
+        expect(list.scrollTop).toBe(40);
+        // c's bottom (340) to the list's bottom (150), the least that shows it
+        press("ArrowDown");
+        expect(list.scrollTop).toBe(190);
+        expect(target()).toBe("c");
+        expect(getDragSpace(document).get("operation")?.pointer).toEqual({
+            x: 100,
+            y: 105,
+        });
+        // back up: a scrolls in from the top
+        press("ArrowUp", "ArrowUp");
+        expect(target()).toBe("a");
+        expect(list.scrollTop).toBe(0);
         press("Escape");
     });
 

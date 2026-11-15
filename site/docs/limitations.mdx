@@ -31,9 +31,6 @@ out by design.
   +4.6 KB min + gzip (target +2 KB), `/sortable` +7.4 KB (target +2.5 KB) and `/swappable`
   +5.4 KB (target +1.5 KB). They share one drag-source machinery, paid once: see
   [bundle size](/docs/guides/bundle-size#sortable-and-swappable).
-- **Keyboard moves do not scroll the destination into view.** Moving a sortable item or a
-  draggable by keyboard to a slot or a droppable outside its scroll container's visible area does
-  not scroll there; auto-scroll follows the pointer only.
 - **The grid strategy suits items of one size.** An item moved in a `grid` takes its new place's
   corner; items of varied sizes keep their order but may not line up. Lists (`verticalList`,
   `horizontalList`) take items of any size.

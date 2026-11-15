@@ -15,6 +15,7 @@ import {
     key,
     pendingFrames,
     pointer,
+    scroller,
     sortable,
     sortableGroup,
 } from "./harness";
@@ -327,6 +328,45 @@ describe("the keyboard", () => {
         expect(
             [...translate(a), ...translate(b)].every((value) => !value),
         ).toBe(true);
+    });
+
+    it("scrolls the slot into view, and the item lands on it, even after a scroll since the grab", () => {
+        // five items in a list 150 px tall: items 0 to 2 show
+        const list = scroller({ x: 0, y: 0, width: 100, height: 150 }, 290);
+        const onSortEnd = vi.fn();
+        const items = [0, 1, 2, 3, 4].map((index) =>
+            sortable(
+                { id: `s${index}`, index, group: "s", onSortEnd },
+                { x: 0, y: index * 60, width: 100, height: 50 },
+                list,
+            ),
+        );
+        const source = items[0] as (typeof items)[0];
+        const top = () => source.element.getBoundingClientRect().y;
+        source.element.focus();
+        key(" ");
+        flush();
+        // the list scrolls 10 px while the item is held: the slots move, the pointer does not
+        list.scrollTop = 10;
+        document.dispatchEvent(new Event("scroll"));
+        flush();
+        key("ArrowDown");
+        flush();
+        // on slot 1, where item 1 rests now
+        expect(top()).toBe(50);
+        expect(list.scrollTop).toBe(10);
+        // two steps in one frame: the first scrolls (10 px), the second steps on from there
+        key("ArrowDown");
+        key("ArrowDown");
+        flush();
+        // slot 3 (170 to 220 now) is below the fold: scrolled by the least that shows it, 70 px
+        expect(list.scrollTop).toBe(80);
+        expect(top()).toBe(100);
+        key("Enter");
+        expect(onSortEnd.mock.calls[0]?.[0].to).toEqual({
+            group: "s",
+            index: 3,
+        });
     });
 
     it("reads its arrows visually in RTL: ArrowLeft moves toward the inline end", () => {

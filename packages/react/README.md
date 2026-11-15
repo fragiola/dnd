@@ -274,7 +274,7 @@ first arrow keys depend on a chunk arriving, so it was left in.
 
 An `onMouseDown` on a draggable does not run (the press is claimed on `pointerdown`; use
 `onPointerDown`), a drag never crosses documents, auto-scroll uses the scroll range measured
-when the drag starts, keyboard moves do not scroll the destination into view, and the `grid`
+when the drag starts, and the `grid`
 strategy suits items of one size. In Firefox, set `overflow-anchor: none` on a scroll container whose
 items are dragged or shifted. See
 [limitations](https://fragiola.com/dnd/docs/limitations).

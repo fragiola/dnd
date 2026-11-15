@@ -223,7 +223,11 @@ These are the decisions of Epic #6, on top of D1–D14, which still hold.
      moves items to their new place's corner, so it suits items of one size best.
    - **Keyboard:** always the "targets" mode, over the group's slots: the arrows move one slot
      (forward is down or toward the inline end), on into the next accepting group in reading order
-     past a group's end, Space or Enter drops, Escape cancels and restores every shift.
+     past a group's end, Space or Enter drops, Escape cancels and restores every shift. Every
+     targets-mode step (a sortable's slot, a swap target, a draggable's droppable: the shared
+     keyboard sensor) scrolls its destination into view within its scroll containers, the least
+     that shows it (`reveal`, `block: "nearest"`-like, instant unless the app's CSS asks for
+     `scroll-behavior: smooth`), the pointer following it, and measures again at once.
    - **Helpers:** `arrayMove(list, from, to)` and `moveBetween(lists, event)` (a record of lists by
      group), pure: they never mutate their input, and return it unchanged when nothing moves.
 3. **Swappable (S3).** `registerSwappable(element, { id, index, group, accepts?, … , onSwap? })` and

@@ -53,6 +53,8 @@ export interface Session extends ActiveSession {
     operation: DragOperation;
     /** the pointer moved: the next frame follows it */
     move(pointer: Point): void;
+    /** runs the pending frame now (a keyboard step that scrolled: the next one reads its rects) */
+    flush(): void;
     drop(): void;
     /** the droppables that accept the source, as measured */
     targets(): readonly Candidate[];
@@ -301,6 +303,9 @@ export function startDrag(
             if (done) return;
             dirty = true;
             schedule();
+        },
+        flush() {
+            if (!done && frameId !== undefined) frame();
         },
         targets: () => accepting,
         hovered: () => hovered,

@@ -2,7 +2,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { getDragSpace } from "../src";
 import type { SwapEvent, SwappableOptions } from "../src/swappable";
-import { type Box, flush, key, pointer, swappable } from "./harness";
+import { type Box, flush, key, pointer, scroller, swappable } from "./harness";
 
 // A swap in a drag: only the target moves, into the source's place, marked by the core; the
 // event names both items; groups accept or refuse; the keyboard picks targets; a cancel and a
@@ -169,5 +169,27 @@ describe("the keyboard", () => {
             target: { id: "s2" },
             input: "keyboard",
         });
+    });
+
+    it("scrolls the target into view", () => {
+        // a column of four in a list 150 px tall: the last one is below the fold
+        const list = scroller({ x: 0, y: 0, width: 100, height: 150 }, 240);
+        const onSwap = vi.fn<(event: SwapEvent) => void>();
+        const items = [0, 1, 2, 3].map((index) =>
+            swappable(
+                { id: `v${index}`, index, group: "v", onSwap },
+                { x: 0, y: index * 60, width: 100, height: 50 },
+                list,
+            ),
+        );
+        items[0]?.element.focus();
+        for (const name of [" ", "ArrowDown", "ArrowDown", "ArrowDown"]) {
+            key(name);
+            flush();
+        }
+        expect(list.scrollTop).toBe(80);
+        expect(marked(items)).toEqual([false, false, false, true]);
+        key("Enter");
+        expect(onSwap.mock.calls[0]?.[0].target).toMatchObject({ id: "v3" });
     });
 });

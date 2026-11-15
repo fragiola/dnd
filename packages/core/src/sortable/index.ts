@@ -10,6 +10,7 @@
 import type { AutoScroll } from "../core/auto-scroll";
 import { center, measure } from "../core/dom";
 import type { Candidate, Session } from "../core/operation";
+import type { KeyStep } from "../core/sensors/context";
 import { readingOrder } from "../core/sensors/keyboard";
 import { registerSource } from "../core/source";
 import {
@@ -212,7 +213,7 @@ interface Place {
 interface Sort {
     emit(event: DragSpaceEvent): void;
     collide: CollisionStrategy;
-    step(session: Session, forward: boolean): Point | undefined;
+    step(session: Session, forward: boolean): KeyStep | undefined;
     end(): void;
 }
 
@@ -564,10 +565,21 @@ function createSort(space: DragSpace, source: Item): Sort {
                     source: rect,
                     rtl,
                 }).landing ?? landingIn(group, rect);
-            const { pointer, delta } = session.operation;
+            // the slot's box now; the dragged box sits where the pointer puts it, from the box
+            // it had at the start (the page may have scrolled since)
+            const slot = {
+                ...rect,
+                x: rect.x + landing.x,
+                y: rect.y + landing.y,
+            };
+            const { pointer, delta, rects } = session.operation;
             return {
-                x: pointer.x - delta.x + landing.x,
-                y: pointer.y - delta.y + landing.y,
+                point: {
+                    x: pointer.x - delta.x + slot.x - rects.source.x,
+                    y: pointer.y - delta.y + slot.y - rects.source.y,
+                },
+                rect: slot,
+                element: group.entry.element,
             };
         },
         end() {

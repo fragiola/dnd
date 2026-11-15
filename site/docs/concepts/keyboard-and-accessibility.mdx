@@ -30,8 +30,11 @@ unless the app moved it.
 ```
 
 In `"targets"` mode, the arrows go from droppable to droppable in reading order: rows top to
-bottom, each row from its inline start. Down and the arrow toward the inline end go forward. In
-`"step"` mode, arrows are visual: in right to left, ArrowRight still moves right.
+bottom, each row from its inline start. Down and the arrow toward the inline end go forward. Each
+move scrolls the droppable into view within its scroll containers, by the least that shows it
+(as `scrollIntoView({ block: "nearest" })` does): instantly, unless your CSS sets
+`scroll-behavior: smooth` on the container. In `"step"` mode, arrows are visual: in right to left,
+ArrowRight still moves right.
 
 <Example id="keyboard" />
 
@@ -55,8 +58,9 @@ words.
 
 The focus returns to the item after a drop within its group. Moved into another group, the item
 is a new element in the app's other list (React mounts it under its new parent), so giving it the
-focus is the app's: the example below focuses it from its `ref` once it mounts. A keyboard move
-does not scroll the destination into view.
+focus is the app's: the example below focuses it from its `ref` once it mounts. Each arrow
+scrolls the destination slot or swap target into view within its scroll containers, as in the
+targets mode.
 
 <Example id="sortable-keyboard" />
 

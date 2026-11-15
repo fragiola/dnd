@@ -1,12 +1,12 @@
 // The keyboard sensor (D10): on the activator (the draggable or its handle), Space or Enter grabs,
 // the arrows move by a step or to the next or previous droppable in reading order, Space or
 // Enter drops, Escape cancels, and Tab or the focus leaving cancels. Arrows are visual: in RTL,
-// ArrowRight still moves right. Focus returns to the activator after a drop or Escape, unless the
-// app moved it.
-import { center, listen, measure } from "../dom";
+// ArrowRight still moves right. A step scrolls its destination into view within its scroll
+// containers. Focus returns to the activator after a drop or Escape, unless the app moved it.
+import { center, listen, measure, reveal } from "../dom";
 import type { Candidate } from "../operation";
 import type { Point } from "../types";
-import type { SensorContext } from "./context";
+import type { KeyStep, SensorContext } from "./context";
 
 const ARROWS: Record<string, readonly [number, number] | undefined> = {
     ArrowRight: [1, 0],
@@ -89,7 +89,10 @@ export function bindKeyboard(
         let at: Candidate | undefined;
         let refocus = true;
         /** the centre of the next droppable in reading order, from the one it is at */
-        const nextTarget = (forward: boolean, rtl: boolean) => {
+        const nextTarget = (
+            forward: boolean,
+            rtl: boolean,
+        ): KeyStep | undefined => {
             const order = readingOrder(session.targets(), rtl);
             const current = at ?? session.hovered();
             const index = order.findIndex(
@@ -111,7 +114,11 @@ export function bindKeyboard(
                 ];
             if (!next) return undefined;
             at = next;
-            return center(next.rect);
+            return {
+                point: center(next.rect),
+                rect: next.rect,
+                element: next.entry.element,
+            };
         };
         session.onEnd(
             listen(doc, "keydown", (key) => {
@@ -139,8 +146,20 @@ export function bindKeyboard(
                         ? context.step(session, forward, rtl)
                         : nextTarget(forward, rtl);
                     if (!to) return;
-                    pointer = to;
+                    // the destination is scrolled into view, and the pointer follows it there;
+                    // the operation measures again after that scroll
+                    const scrolled = reveal(to.element, to.rect);
+                    pointer = {
+                        x: to.point.x - scrolled.x,
+                        y: to.point.y - scrolled.y,
+                    };
                     session.move(pointer);
+                    // measured again at once, so a key pressed before the next frame steps on
+                    // from where things are now
+                    if (scrolled.x || scrolled.y) {
+                        session.invalidate();
+                        session.flush();
+                    }
                 } else {
                     const step = context.keyboard()?.step ?? 25;
                     pointer = {

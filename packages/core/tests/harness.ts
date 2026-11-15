@@ -235,3 +235,29 @@ export function key(
     target.dispatchEvent(event);
     return event;
 }
+
+/**
+ * A vertical scroll container at `box` whose content is `height` px tall: setting its `scrollTop`
+ * (clamped) moves the boxes of the elements inside it, as a browser would.
+ */
+export function scroller(box: Box, height: number) {
+    const el = element(box);
+    el.style.overflowY = "auto";
+    let top = 0;
+    Object.defineProperty(el, "scrollTop", {
+        get: () => top,
+        set: (value: number) => {
+            const next = Math.max(0, Math.min(height - box.height, value));
+            for (const child of el.querySelectorAll<
+                HTMLElement & { box?: Box }
+            >("*"))
+                if (child.box) child.box.y -= next - top;
+            top = next;
+        },
+    });
+    Object.defineProperty(el, "clientHeight", { get: () => box.height });
+    Object.defineProperty(el, "clientWidth", { get: () => box.width });
+    Object.defineProperty(el, "scrollHeight", { get: () => height });
+    Object.defineProperty(el, "scrollWidth", { get: () => box.width });
+    return el;
+}

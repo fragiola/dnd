@@ -130,6 +130,33 @@ for (const dir of DIRS) {
             ]);
         });
 
+        test("scrolls each keyboard step's slot into view in its scroll container", async ({
+            page,
+        }) => {
+            const list = page.getByTestId("sc");
+            const source = page.getByTestId("sc-a");
+            await source.focus();
+            await keys(page, "Space", ...Array(5).fill("ArrowDown"));
+            await frame(page);
+            // the list scrolled to its end, and the dragged item shows in it, on the last slot
+            expect(await list.evaluate((el) => el.scrollTop)).toBeGreaterThan(
+                0,
+            );
+            const [box, item] = await Promise.all([
+                list.boundingBox(),
+                source.boundingBox(),
+            ]);
+            expect(item && box && item.y >= box.y - 1).toBe(true);
+            expect(
+                item && box && item.y + item.height <= box.y + box.height + 1,
+            ).toBe(true);
+            await keys(page, "Enter");
+            await expect(order(page, "sc")).toHaveText(
+                "sc-b sc-c sc-d sc-e sc-f sc-a",
+            );
+            expect(await logOf(page)).toEqual(["sort sc-a sc:0 → sc:5"]);
+        });
+
         test("cancels a pointer sort on Escape: every shift back, nothing moved", async ({
             page,
         }) => {
