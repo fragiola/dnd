@@ -185,22 +185,22 @@ development checks dropped):
 | imported                                     | min + gzip                       | target                     |
 | -------------------------------------------- | -------------------------------- | -------------------------- |
 | `@fragiola/dnd-react`                        | 3.6 KB                           | ≤ 4 KB: met                |
-| `@fragiola/dnd-react` + `/draggable`         | 8.3 KB (+4.6 KB)                 | ≤ +2 KB: **missed** (D13)  |
+| `@fragiola/dnd-react` + `/draggable`         | 8.6 KB (+5.0 KB)                 | ≤ +2 KB: **missed** (D13)  |
 | `@fragiola/dnd-react` + `/droppable`         | 4.8 KB (+1.1 KB)                 | ≤ +1.5 KB: met             |
-| `@fragiola/dnd-react` + `/sortable`          | 11.1 KB (+7.4 KB)                | ≤ +2.5 KB: **missed** (S5) |
-| `@fragiola/dnd-react` + `/swappable`         | 9.0 KB (+5.4 KB)                 | ≤ +1.5 KB: **missed** (S5) |
-| the shared entry, `/draggable`, `/droppable` | 8.8 KB                           |                            |
-| those three + `/sortable`                    | 11.7 KB (+2.9 KB over the three) |                            |
-| those three + `/swappable`                   | 9.7 KB (+0.9 KB over the three)  |                            |
-| all five                                     | 12.4 KB                          |                            |
-| only `Draggable` / `Droppable`               | 6.6 KB / 3.1 KB                  |                            |
-| only `Sortable` / `Swappable`                | 8.7 KB / 7.2 KB                  |                            |
+| `@fragiola/dnd-react` + `/sortable`          | 11.5 KB (+7.9 KB)                | ≤ +2.5 KB: **missed** (S5) |
+| `@fragiola/dnd-react` + `/swappable`         | 9.5 KB (+5.8 KB)                 | ≤ +1.5 KB: **missed** (S5) |
+| the shared entry, `/draggable`, `/droppable` | 9.2 KB                           |                            |
+| those three + `/sortable`                    | 12.2 KB (+3.0 KB over the three) |                            |
+| those three + `/swappable`                   | 10.2 KB (+1.0 KB over the three) |                            |
+| all five                                     | 13.0 KB                          |                            |
+| only `Draggable` / `Droppable`               | 7.0 KB / 3.1 KB                  |                            |
+| only `Sortable` / `Swappable`                | 9.2 KB / 7.6 KB                  |                            |
 
-The draggable entry measures 8.3 KB now (8.0 KB at the end of Epic #1): issue #7 moved its drag-source registration into the shared core (`source.ts`), so that sortable and swappable use it without importing `/draggable` (S1). **Why S5 misses:** its targets are counted "on top of the shared core", but a sortable or
+The draggable entry measures 8.6 KB now (8.0 KB at the end of Epic #1): issue #7 moved its drag-source registration into the shared core (`source.ts`), so that sortable and swappable use it without importing `/draggable` (S1), and Epic #6's review added the keyboard's scroll into view (about 0.3 KB, shared by every drag source). **Why S5 misses:** its targets are counted "on top of the shared core", but a sortable or
 swappable item is a drag source, and carries the same pointer and keyboard sensors, drag operation
-and `translate` writer as a draggable: about 4.6 KB that the draggable entry pays too. Measured
-over that machinery (the three Epic #1 entries), sortable adds 2.9 KB (the groups as drop targets,
-the three strategies, the keyboard slots and the helpers) and swappable 0.9 KB. An app that uses
+and `translate` writer as a draggable: about 5.0 KB that the draggable entry pays too. Measured
+over that machinery (the three Epic #1 entries), sortable adds 3.0 KB (the groups as drop targets,
+the three strategies, the keyboard slots and the helpers) and swappable 1.0 KB. An app that uses
 draggables and a sortable list pays the shared part once. Making the machinery smaller would
 lower all three entries at once; it is the next size pass, not a sortable one.
 

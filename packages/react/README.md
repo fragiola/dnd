@@ -245,18 +245,18 @@ imports, with the core they pull (min + gzip, React left out, the development ch
 | imported                                     | min + gzip        | target         |
 | -------------------------------------------- | ----------------- | -------------- |
 | `@fragiola/dnd-react`                        | 3.6 KB            | ≤ 4 KB         |
-| `@fragiola/dnd-react` + `/draggable`         | 8.3 KB (+4.6 KB)  | ≤ 2 KB extra   |
+| `@fragiola/dnd-react` + `/draggable`         | 8.6 KB (+5.0 KB)  | ≤ 2 KB extra   |
 | `@fragiola/dnd-react` + `/droppable`         | 4.8 KB (+1.1 KB)  | ≤ 1.5 KB extra |
-| `@fragiola/dnd-react` + `/sortable`          | 11.1 KB (+7.4 KB) | ≤ 2.5 KB extra |
-| `@fragiola/dnd-react` + `/swappable`         | 9.0 KB (+5.4 KB)  | ≤ 1.5 KB extra |
-| the shared entry, `/draggable`, `/droppable` | 8.8 KB            |                |
-| all five                                     | 12.4 KB           |                |
-| only `Draggable` / `Droppable`               | 6.6 KB / 3.1 KB   |                |
-| only `Sortable` / `Swappable`                | 8.7 KB / 7.2 KB   |                |
+| `@fragiola/dnd-react` + `/sortable`          | 11.5 KB (+7.9 KB) | ≤ 2.5 KB extra |
+| `@fragiola/dnd-react` + `/swappable`         | 9.5 KB (+5.8 KB)  | ≤ 1.5 KB extra |
+| the shared entry, `/draggable`, `/droppable` | 9.2 KB            |                |
+| all five                                     | 13.0 KB           |                |
+| only `Draggable` / `Droppable`               | 7.0 KB / 3.1 KB   |                |
+| only `Sortable` / `Swappable`                | 9.2 KB / 7.6 KB   |                |
 
 The drag sources miss their targets: sortable and swappable share the draggable's drag-source
-machinery (in the shared core, about 4.6 KB), so over the draggable and droppable entries they add
-2.9 KB and 0.9 KB.
+machinery (in the shared core, about 5.0 KB), so over the draggable and droppable entries they add
+3.0 KB and 1.0 KB.
 
 The draggable misses its target. Most of it is behaviour the core's draggable capability carries
 for every draggable: the pointer sensor (activation, capture, the press claim and its focus), the

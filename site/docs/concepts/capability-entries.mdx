@@ -33,18 +33,18 @@ they pull, minified and gzipped, with React left out and the development checks 
 | imported | min + gzip | over the shared entry | target |
 | --- | --- | --- | --- |
 | `@fragiola/dnd-react` | 3.6 KB | | ≤ 4 KB |
-| `@fragiola/dnd-react` + `/draggable` | 8.3 KB | 4.6 KB | ≤ 2 KB extra |
+| `@fragiola/dnd-react` + `/draggable` | 8.6 KB | 5.0 KB | ≤ 2 KB extra |
 | `@fragiola/dnd-react` + `/droppable` | 4.8 KB | 1.1 KB | ≤ 1.5 KB extra |
-| `@fragiola/dnd-react` + `/sortable` | 11.1 KB | 7.4 KB | ≤ 2.5 KB extra |
-| `@fragiola/dnd-react` + `/swappable` | 9.0 KB | 5.4 KB | ≤ 1.5 KB extra |
-| the shared entry, `/draggable`, `/droppable` | 8.8 KB | 5.2 KB | |
-| those three + `/sortable` | 11.7 KB | 2.9 KB over those three | |
-| those three + `/swappable` | 9.7 KB | 0.9 KB over those three | |
-| all five | 12.4 KB | 8.8 KB | |
-| only `Draggable` | 6.6 KB | | |
+| `@fragiola/dnd-react` + `/sortable` | 11.5 KB | 7.9 KB | ≤ 2.5 KB extra |
+| `@fragiola/dnd-react` + `/swappable` | 9.5 KB | 5.8 KB | ≤ 1.5 KB extra |
+| the shared entry, `/draggable`, `/droppable` | 9.2 KB | 5.5 KB | |
+| those three + `/sortable` | 12.2 KB | 3.0 KB over those three | |
+| those three + `/swappable` | 10.2 KB | 1.0 KB over those three | |
+| all five | 13.0 KB | 9.3 KB | |
+| only `Draggable` | 7.0 KB | | |
 | only `Droppable` | 3.1 KB | | |
-| only `Sortable` | 8.7 KB | | |
-| only `Swappable` | 7.2 KB | | |
+| only `Sortable` | 9.2 KB | | |
+| only `Swappable` | 7.6 KB | | |
 
 The drag sources miss their targets: each carries the pointer and keyboard sensors, the drag
 operation and the `translate` writer, shared between them, so an app that both drags and sorts

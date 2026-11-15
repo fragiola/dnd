@@ -28,8 +28,8 @@ out by design.
 ## Known limits
 
 - **The drag sources are larger than their targets.** Over the shared entry, `/draggable` adds
-  +4.6 KB min + gzip (target +2 KB), `/sortable` +7.4 KB (target +2.5 KB) and `/swappable`
-  +5.4 KB (target +1.5 KB). They share one drag-source machinery, paid once: see
+  +5.0 KB min + gzip (target +2 KB), `/sortable` +7.9 KB (target +2.5 KB) and `/swappable`
+  +5.8 KB (target +1.5 KB). They share one drag-source machinery, paid once: see
   [bundle size](/docs/guides/bundle-size#sortable-and-swappable).
 - **The grid strategy suits items of one size.** An item moved in a `grid` takes its new place's
   corner; items of varied sizes keep their order but may not line up. Lists (`verticalList`,
