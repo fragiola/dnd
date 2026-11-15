@@ -15,6 +15,7 @@ interface Rolldown {
         input: string;
         external: RegExp;
         resolve: { conditionNames: string[] };
+        transform?: { define: Record<string, string> };
         plugins: {
             name: string;
             resolveId(id: string): string | undefined;
@@ -34,9 +35,16 @@ async function loadRolldown(): Promise<Rolldown> {
 }
 
 /** The unminified bundle of a module whose source is `code`. */
-async function bundle(code: string): Promise<string> {
+async function bundle(code: string, production = false): Promise<string> {
     const { rolldown } = await loadRolldown();
     const build = await rolldown({
+        ...(production
+            ? {
+                  transform: {
+                      define: { "process.env.NODE_ENV": '"production"' },
+                  },
+              }
+            : {}),
         input: "fixture",
         external: /^react(?:-dom)?(?:\/|$)/,
         resolve: {
@@ -108,5 +116,19 @@ describe("bundle isolation of the React entries", () => {
             const code = await bundle(`import ${entry(name)};`);
             expect(code.trim(), name).toBe("");
         }
+    });
+
+    it("drops the development checks and their messages from an app's production build", async () => {
+        const code = `import { Draggable, DragHandle } from ${entry("draggable")};\nexport const used = [Draggable, DragHandle];`;
+        const messages = [
+            "never received the ref",
+            "got no child",
+            "is not inside",
+        ];
+        const dev = await bundle(code);
+        for (const message of messages) expect(dev, message).toContain(message);
+        const production = await bundle(code, true);
+        for (const message of messages)
+            expect(production, message).not.toContain(message);
     });
 });

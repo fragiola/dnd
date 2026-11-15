@@ -60,17 +60,7 @@ function coreOptions(
     handle: HTMLElement | null,
 ): DraggableOptions {
     return {
-        id: options.id,
-        type: options.type,
-        data: options.data,
-        scope: options.scope,
-        space: options.space,
-        disabled: options.disabled,
-        activation: options.activation,
-        keyboard: options.keyboard,
-        autoScroll: options.autoScroll,
-        collision: options.collision,
-        translate: options.translate,
+        ...options,
         handle,
         onDragStart: (event) => latest.current.onDragStart?.(event),
         onDragMove: (event) => latest.current.onDragMove?.(event),

@@ -183,18 +183,26 @@ latest. Nothing touches the DOM while rendering, so server rendering works as is
 
 ## Size
 
-`pnpm size` reports each entry, and what an app ships for the entries it imports, with the core
-they pull (min + gzip, React left out). Measured at the end of the walking skeleton:
+`pnpm size` reports each entry, and what an app's production build ships for the entries it
+imports, with the core they pull (min + gzip, React left out, the development checks dropped):
 
 | imported                             | min + gzip       | target (D13)   |
 | ------------------------------------ | ---------------- | -------------- |
-| `@fragiola/dnd-react`                | 3.7 KB           | ≤ 4 KB         |
-| `@fragiola/dnd-react` + `/draggable` | 7.9 KB (+4.3 KB) | ≤ 2 KB extra   |
-| `@fragiola/dnd-react` + `/droppable` | 4.8 KB (+1.1 KB) | ≤ 1.5 KB extra |
-| all three                            | 8.4 KB           |                |
+| `@fragiola/dnd-react`                | 3.5 KB           | ≤ 4 KB         |
+| `@fragiola/dnd-react` + `/draggable` | 7.7 KB (+4.3 KB) | ≤ 2 KB extra   |
+| `@fragiola/dnd-react` + `/droppable` | 4.6 KB (+1.1 KB) | ≤ 1.5 KB extra |
+| all three                            | 8.1 KB           |                |
+| only `Draggable`                     | 6.1 KB           |                |
+| only `Droppable`                     | 2.9 KB           |                |
 
-The draggable misses its target: the core's draggable capability (the pointer and keyboard
-sensors, the drag operation and the collision pass, 3.2 KB alone) is most of it.
+The draggable misses its target. Most of it is behaviour the core's draggable capability carries
+for every draggable: the pointer sensor (activation, capture, the press claim and its focus), the
+keyboard sensor (step and targets modes), the drag operation (measurement, collision, the
+`translate` writer, events) and the guarded callbacks. A size pass dropped the development
+messages from production builds (they are behind a literal `process.env.NODE_ENV` check, and the
+build no longer folds it) and took the shared entry from 3.8 to 3.5 KB; the draggable path did not
+move measurably. Loading the keyboard's targets mode lazily (about 0.3 KB) would make a drag's
+first arrow keys depend on a chunk arriving, so it was left in.
 
 ## Stability
 

@@ -52,12 +52,7 @@ function coreOptions(
     latest: { readonly current: UseDroppableOptions },
 ): DroppableOptions {
     return {
-        id: options.id,
-        data: options.data,
-        scope: options.scope,
-        space: options.space,
-        accepts: options.accepts,
-        disabled: options.disabled,
+        ...options,
         onDragEnter: (event) => latest.current.onDragEnter?.(event),
         onDragOver: (event) => latest.current.onDragOver?.(event),
         onDragLeave: (event) => latest.current.onDragLeave?.(event),

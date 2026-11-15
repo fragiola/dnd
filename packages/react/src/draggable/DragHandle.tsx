@@ -3,7 +3,6 @@
 // sit deep inside the draggable, across any component boundary.
 import type { DraggableState } from "@fragiola/dnd/draggable";
 import * as React from "react";
-import { isDev } from "../utils/dev";
 import { createSlot, useSlotState } from "../utils/useCoreState";
 import type { WrapperProps } from "../utils/useRender";
 import { useWrap } from "../utils/useWrap";
@@ -14,6 +13,11 @@ export interface DragHandleProps extends WrapperProps<DraggableState> {
     /** the id of the element describing how to drag it (`aria-describedby`): the app's text */
     describedBy?: string | undefined;
 }
+
+// The development check is written `process.env.NODE_ENV !== "production"`, literally, as React's
+// are: an app's bundler (Vite, in dev too, webpack, Next, …) replaces it, and a production build
+// drops the checks and their messages.
+declare const process: { readonly env: { readonly NODE_ENV?: string } };
 
 const REST: DraggableState = { dragging: false, disabled: false };
 
@@ -54,7 +58,7 @@ function useDragHandle(describedBy: string | undefined) {
         [live],
     );
     React.useEffect(() => {
-        if (isDev() && !live.linked)
+        if (process.env.NODE_ENV !== "production" && !live.linked)
             console.error(
                 '<DragHandle> is not inside a draggable\'s element (`data-dnd-part="draggable"`): it has no effect.',
             );

@@ -6,9 +6,13 @@
 // in React 19). This is the documented exception to the Fragiola "render, never asChild" rule:
 // the wrapper exists to add behaviour to elements other code renders.
 import * as React from "react";
-import { isDev } from "./dev";
 import { mergeProps, mergeRefs } from "./mergeProps";
 import type { RenderedProps, WrapperProps } from "./useRender";
+
+// Development checks are written `process.env.NODE_ENV !== "production"`, literally, as React's
+// are: an app's bundler (Vite, in dev too, webpack, Next, …) replaces it, and a production build
+// drops the checks and their messages.
+declare const process: { readonly env: { readonly NODE_ENV?: string } };
 
 type AnyProps = Record<string, unknown>;
 
@@ -60,8 +64,12 @@ export function useWrap<State>(
 ): React.ReactNode {
     const { children, render, className, style, ref: wrapperRef } = wrapper;
     const { part, state, props: internal, fallback } = options;
-    const dev = isDev();
-    if (dev && render === undefined && !fallback) assertChild(part, children);
+    if (
+        process.env.NODE_ENV !== "production" &&
+        render === undefined &&
+        !fallback
+    )
+        assertChild(part, children);
     // the element cloned: the `render` element, else the fallback (whose content the children
     // are), else the child itself
     let element: React.ReactElement | undefined;
@@ -95,7 +103,11 @@ export function useWrap<State>(
     );
     const checkRef = options.checkRef !== false;
     React.useEffect(() => {
-        if (checkRef && isDev() && !attached.current)
+        if (
+            process.env.NODE_ENV !== "production" &&
+            checkRef &&
+            !attached.current
+        )
             console.error(
                 `<${part}>: its element never received the ref, so it has no drag and drop behaviour. A component child must pass \`ref\` and its other props on to its element, as DOM elements and Fragiola primitives do.`,
             );

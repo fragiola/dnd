@@ -10,6 +10,9 @@ export default defineConfig({
     },
     format: "esm",
     platform: "browser",
+    // the development checks stay for the app's bundler to decide: the browser platform would
+    // otherwise fold `process.env.NODE_ENV` to "development" here, for good
+    define: { "process.env.NODE_ENV": "process.env.NODE_ENV" },
     dts: true,
     sourcemap: true,
     clean: true,

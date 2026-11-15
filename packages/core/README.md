@@ -37,6 +37,7 @@ The drag space is the engine and speaks the Fragiola verbs:
 ```ts
 const space = getDragSpace(document);
 space.get("operation"); // the drag in progress, or undefined
+space.get("document"); // the document its drags run in (where an overlay portals)
 space.is("droppable-over", { droppableId: "done" });
 space.can("drop", { draggableId: "t1", droppableId: "done" }); // accepts + middleware, dry run
 space.run("cancel"); // { ok: true, value: {} } or { ok: false, error: { code: "not_found" } }
@@ -55,6 +56,8 @@ There is no provider: both register in their document's drag space, created on f
 registration returns `{ update(options), unregister(), getState(), subscribe(listener) }`, an
 external store for `useSyncExternalStore`. During a drag the core writes only the CSS `translate`
 of the dragged element (never `transform`), once per animation frame, and `touch-action: none` on
-a handle; every other look is the app's.
+a handle; every other look is the app's. App code that throws (a callback, a listener, an `accepts`
+predicate) never leaves the space stuck: the drag is cancelled cleanly and the error is rethrown
+from a timer of the element's window.
 
 Docs and examples: <https://fragiola.com/dnd>. MIT, see [LICENSE](LICENSE).

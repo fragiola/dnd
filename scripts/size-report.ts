@@ -46,6 +46,7 @@ interface Rolldown {
         input: string;
         cwd: string;
         external: RegExp;
+        transform: { define: Record<string, string> };
         plugins: {
             name: string;
             resolveId(id: string): string | undefined;
@@ -73,22 +74,31 @@ async function loadRolldown(): Promise<Rolldown | undefined> {
 
 /**
  * What an app ships for the React entries it imports, with the core they pull (D13): each set of
- * entries' every export, bundled from `dist` and minified, React left out, then gzip.
+ * entries' every export, bundled from `dist` for production and minified, React left out, then
+ * gzip.
  */
 async function appSizes(rolldown: Rolldown): Promise<string[]> {
     const dist = join(root, "packages", "react", "dist");
     if (!existsSync(dist)) return [];
-    const size = async (entries: readonly string[]) => {
-        const code = entries
-            .map(
-                (name) =>
-                    `export * from ${JSON.stringify(join(dist, `${name}.js`))};`,
-            )
-            .join("\n");
+    const size = async (entries: readonly string[], only?: string) => {
+        const code = only
+            ? `export { ${only} } from ${JSON.stringify(join(dist, `${entries[0]}.js`))};`
+            : entries
+                  .map(
+                      (name) =>
+                          `export * from ${JSON.stringify(join(dist, `${name}.js`))};`,
+                  )
+                  .join("\n");
         const build = await rolldown.rolldown({
             input: "app",
             cwd: join(root, "packages", "react"),
             external: /^react(?:-dom)?(?:\/|$)/,
+            // an app's production build: the development checks are dropped
+            transform: {
+                define: {
+                    "process.env.NODE_ENV": JSON.stringify("production"),
+                },
+            },
             plugins: [
                 {
                     name: "app",
@@ -121,6 +131,12 @@ async function appSizes(rolldown: Rolldown): Promise<string[]> {
     }
     const all = await size(["index", "draggable", "droppable"]);
     rows.push(`| all three | ${kb(all)} | ${kb(all - shared)} | |`);
+    // what an app that imports one part ships: the rest of the entries is tree-shaken
+    for (const [name, part] of [
+        ["draggable", "Draggable"],
+        ["droppable", "Droppable"],
+    ] as const)
+        rows.push(`| only \`${part}\` | ${kb(await size([name], part))} | | |`);
     return rows;
 }
 
