@@ -9,6 +9,17 @@ A React app does not install this package: it is installed through, and re-expor
 [`@fragiola/dnd-react`](https://www.npmjs.com/package/@fragiola/dnd-react), entry by entry. Install
 it directly only to build an adapter for another framework.
 
+## Capabilities
+
+- **draggable** (`@fragiola/dnd/draggable`): an element that follows the pointer or the keyboard.
+- **droppable** (`@fragiola/dnd/droppable`): a drop target with `accepts`, scopes and drop rules.
+- **sortable** (`@fragiola/dnd/sortable`): items of a group form a list (vertical, horizontal or
+  a grid), previewed by `translate` shifts, moving across groups that accept each other.
+- **swappable** (`@fragiola/dnd/swappable`): an item exchanges places with another, within its
+  group or across accepting ones.
+
+Each imports only the shared core, never another capability.
+
 ## API
 
 | entry                     | exports                                                                                                                                                                                                                                                                                                                                     |

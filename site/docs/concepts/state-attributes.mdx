@@ -10,25 +10,30 @@ Grid Layout's `data-dragging`).
 
 ## Parts and ids
 
-Every element a wrapper touches carries `data-dnd-part`: `draggable`, `handle`, `droppable` or
-`overlay`. A draggable and a droppable also carry `data-dnd-id`, the `id` they were given (as a
-string). Stacked wrappers list their parts (`data-dnd-part="draggable droppable"`; select with
+Every element a wrapper touches carries `data-dnd-part`: `draggable`, `handle`, `droppable`,
+`overlay`, `sortable`, `sortable-group` or `swappable`. A draggable, a droppable, a sortable and a
+swappable item also carry `data-dnd-id`, the `id` they were given (as a string); a
+`SortableGroup` carries its `group` there. Stacked wrappers list their parts (`data-dnd-part="draggable droppable"`; select with
 `[data-dnd-part~="droppable"]`). Tests and tooling select by them, never by class names.
 
 ## States
 
 | attribute | on | when |
 | --- | --- | --- |
-| `data-dnd-dragging` | draggable, its handle | it is the source of the drag in progress |
-| `data-dnd-disabled` | draggable, its handle, droppable | `disabled` is set |
+| `data-dnd-dragging` | draggable, sortable, swappable, its handle | it is the source of the drag in progress |
+| `data-dnd-disabled` | draggable, sortable, swappable, its handle, droppable, sortable group | `disabled` is set |
 | `data-dnd-handle` | handle | always: it is a drag handle |
 | `data-dnd-active` | droppable | a drag runs that this droppable would accept (its scope, its `accepts`) |
 | `data-dnd-over` | droppable | an accepted source hovers it, and no drop middleware vetoes it |
 | `data-dnd-refused` | droppable | a source hovers it that its `accepts`, or a drop middleware, refuses |
-| `aria-disabled="true"` | draggable, its handle, droppable | `disabled` is set |
-| `aria-describedby` | draggable, handle | only when the app passes `describedBy` |
+| `data-dnd-sorting` | sortable, sortable group | its group takes part in a sort in progress: the source's group, or one that accepts it |
+| `data-dnd-swap-target` | swappable | it is the item the drag would swap with now; written by the core, never rendered |
+| `aria-disabled="true"` | draggable, sortable, swappable, its handle, droppable, sortable group | `disabled` is set |
+| `aria-describedby` | draggable, sortable, swappable, handle | only when the app passes `describedBy` |
 
 A droppable is never both `over` and `refused`. A refused hover never reports `onDrop`.
+`data-dnd-sorting` is rendered by React at a sort's start and end only; `data-dnd-swap-target` is
+written by the core with the target's shift, so a swap preview commits nothing.
 
 ## The same state in functions
 
@@ -44,6 +49,9 @@ A droppable is never both `over` and `refused`. A refused hover never reports `o
 | --- | --- |
 | `Draggable`, `DragHandle` | `{ dragging, disabled }` |
 | `Droppable` | `{ over, active, refused, disabled }` |
+| `Sortable` | `{ dragging, sorting, disabled }` |
+| `SortableGroup` | `{ sorting, disabled }` |
+| `Swappable` | `{ dragging, disabled }` |
 | `DragOverlay` | `{ operation }`: the drag it shows |
 
 ## Inline style is structural only
@@ -53,6 +61,7 @@ The packages ship no CSS. The only inline style they write:
 | style | on | why |
 | --- | --- | --- |
 | `translate` | the dragged element, during a drag | it follows the pointer; the CSS `translate` property, never `transform`, so it composes with a host that owns `transform` |
+| `translate` | a sort's shifted items, a swap's target | the preview: each moved from its box at rest, never a DOM move |
 | `touch-action: none` | a drag handle | a touch on the handle drags, never scrolls |
 | `position: fixed`, `left`, `top`, `width`, `height`, `box-sizing`, `pointer-events: none` | `DragOverlay`'s box | it sits where the dragged box is, inert to the pointer |
 

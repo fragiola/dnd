@@ -1,0 +1,169 @@
+---
+title: Sortable
+description: The wrapper that makes its single child an item of a sortable list, with no provider and no list wrapper. Every prop, the strategies, its state and events.
+---
+
+`Sortable` makes the one element it wraps an item of its `group`'s list, sorted by mouse, touch,
+pen and the keyboard. It renders no element of its own, registers its element in its document's
+drag space, and adds `data-dnd-*` attributes and ARIA. During a sort the core shifts the items by
+their `translate`; React renders at the sort's start and end only.
+
+```tsx title="list.tsx"
+import { arrayMove, Sortable } from "@fragiola/dnd-react/sortable";
+
+{tasks.map((task, index) => (
+    <Sortable
+        key={task.id}
+        id={task.id}
+        index={index}
+        group="tasks"
+        onSortEnd={(event) => setTasks((now) => (event.canceled ? now : arrayMove(now, event.from.index, event.to.index)))}
+    >
+        <li aria-label={task.title}>{task.title}</li>
+    </Sortable>
+))}
+```
+
+## Props
+
+| prop | type | default | |
+| --- | --- | --- | --- |
+| `id` | `string \| number` | required | unique within its scope |
+| `index` | `number` | required | its place in its group's list, from 0 (the app's order) |
+| `group` | `string` | required | the list it belongs to, within its scope; also the group's drop target id |
+| `type` | `string` | | what a plain droppable's `accepts` list matches |
+| `data` | `unknown` | | anything the app wants back (`operation.source.data`) |
+| `scope` | `string` | the default scope | only sortables and droppables of the same scope meet it |
+| `space` | `DragSpace` | its document's | an explicit space from `createDragSpace` |
+| `disabled` | `boolean` | `false` | starts no drag |
+| `accepts` | `string[] \| (source: SortSource) => boolean` | its own group | the other groups whose items its group takes ([groups](/docs/concepts/groups)) |
+| `strategy` | `SortStrategy` | `verticalList` | how its group places and shifts items |
+| `activation` | `{ distance?, delay?, tolerance? }` | `3` px; touch `200` ms within `5` px | when a press becomes a drag |
+| `autoScroll` | `AutoScroll` | | opt-in auto-scroll, from `autoScroll()` |
+| `translate` | `boolean` | `true` | whether it follows the pointer; `false` when a `DragOverlay` shows it, and it is shifted to where it lands instead |
+| `describedBy` | `string` | | the id of the element describing how to sort it (`aria-describedby`) |
+| `onSortStart` | `(event: SortEvent<"sort-start">) => void` | | the sort started; `to` is `from` |
+| `onSortOver` | `(event: SortEvent<"sort-over">) => void` | | the preview changed: `to` is where it would go now |
+| `onSortEnd` | `(event: SortEndEvent) => void` | | dropped or cancelled: apply `from` → `to` to your data |
+| `className`, `style`, `render`, `ref`, `children` | | | as on [`Draggable`](/docs/api/draggable#props), with the sortable's state |
+
+Any other prop is forwarded to the element. The keyboard always moves slot to slot (there is no
+`keyboard` prop), and the collision is the sortable's own (there is no `collision` prop).
+
+## Events
+
+```ts title="sort-event.ts"
+interface SortEvent {
+    type: "sort-start" | "sort-over" | "sort-end";
+    id: string | number;
+    from: { group: string; index: number }; // where it was
+    to: { group: string; index: number }; // where the preview puts it now
+    operation: DragOperation;
+    input: "pointer" | "keyboard";
+}
+
+interface SortEndEvent extends SortEvent {
+    canceled: boolean; // true: `to` is `from`
+}
+```
+
+`onSortEnd`'s `to` is exactly what the preview showed. Released over a plain `Droppable` of the
+scope, or vetoed by a drop middleware, `to` is `from`. The core clears the shifts after your
+`onSortEnd` and the page's listeners, so your new order renders without a jump. The drag events
+(`useDragMonitor`) still run for a sort: their `operation.target` is the group being sorted into.
+
+## Strategies
+
+| export | |
+| --- | --- |
+| `verticalList` | the default: items of any height, top to bottom; they flow with the gaps they have at rest |
+| `horizontalList` | items of any width, from the inline start (the right, in RTL) |
+| `grid` | rows from the inline start, RTL aware; an item moved takes its new place's corner, so items of one size suit it best |
+
+Over an item, the source takes that item's place; coming from another group, it goes before or
+after it, by which half the dragged box's centre is in. Between items the place does not change.
+The grid's hysteresis: an item of another row than the current place must hold the centre a
+quarter of its height inside it before the place changes, so a row boundary never flickers.
+
+A group's strategy is its `SortableGroup`'s, else the first of its items that names one, else
+`verticalList`. Give every item of a group the same one.
+
+A strategy is a plain object of two pure functions, `{ index(input), shifts(input) }`, over the
+group's boxes at rest (`SortIndexInput`, `SortShiftInput`, `SortShifts`), so an app can write its
+own.
+
+<Example id="sortable-horizontal" />
+
+## A handle
+
+`DragHandle`, re-exported from this entry, works inside a `Sortable` as inside a `Draggable`: the
+handle is the only place a drag starts, and the tab stop.
+
+```tsx title="row.tsx"
+import { DragHandle, Sortable } from "@fragiola/dnd-react/sortable";
+
+<Sortable id={row.id} index={index} group="rows">
+    <li>
+        <DragHandle>
+            <button type="button" aria-label={`Move ${row.title}`}>⋮⋮</button>
+        </DragHandle>
+        {row.title}
+    </li>
+</Sortable>;
+```
+
+<Example id="sortable-handle" />
+
+## With an overlay
+
+In a container that clips (a Dockable panel, a scroll area between lists), give the items
+`translate={false}` and render a [`DragOverlay`](/docs/api/drag-overlay). The dragged item then
+stays in the list, shifted to where it would land, as a placeholder you style with
+`data-dnd-dragging`.
+
+## State
+
+`{ dragging: boolean; sorting: boolean; disabled: boolean }`, given to `className`, `style` and
+`render`. `sorting` is true on every item of a group taking part in a sort in progress: the
+source's and the accepting ones'.
+
+## Attributes
+
+| attribute | when |
+| --- | --- |
+| `data-dnd-part="sortable"` | always |
+| `data-dnd-id` | always: the `id`, as a string |
+| `data-dnd-dragging` | it is the item dragged |
+| `data-dnd-sorting` | its group takes part in a sort in progress |
+| `data-dnd-disabled`, `aria-disabled="true"` | `disabled` |
+| `aria-describedby` | `describedBy` is set |
+| `tabindex="0"` | set on the activator when it is not focusable already |
+
+## Fragiola UI and other components
+
+A sortable item is any element that forwards `ref` and props, so a Fragiola UI component sorts
+as it is, with its own styles and handlers kept: the wrapper's handlers run first, then the
+component's.
+
+<Example id="sortable-fragiola-ui" />
+
+## useSortable
+
+```tsx title="item.tsx"
+import { useSortable } from "@fragiola/dnd-react/sortable";
+
+function Item({ id, index }: { id: string; index: number }) {
+    const { state, props } = useSortable({ id, index, group: "tasks", onSortEnd });
+    return <li {...props} className={state.dragging ? "item lifted" : "item"} />;
+}
+```
+
+`useSortable(options)` takes the props above that are options and returns `{ state, props }`:
+spread `props` (the registering `ref`, `data-dnd-*`, ARIA) onto one element.
+
+## In the core
+
+`registerSortable(element, options)` (from `@fragiola/dnd-react/sortable` too) takes the same
+options without `describedBy`, plus `handle` (the element a drag starts from), and returns a
+registration (`update`, `unregister`, `getState`, `subscribe`), as
+[the core's](/docs/api/core) other registrations do.

@@ -1,0 +1,86 @@
+---
+title: Animating the shifts
+description: Make a sortable list's neighbours glide aside with a transition on translate in your own CSS, scoped so the drop itself never animates.
+---
+
+The core writes where each item goes; how it gets there is yours. Without any CSS, a sort's
+neighbours jump from place to place. A `transition` on the `translate` property, in your own
+styles, makes them glide. The packages ship no CSS and no drop animation.
+
+## The transition
+
+The core shifts the items with the CSS `translate` property (never `transform`), so a transition
+on `translate` animates exactly the shifts and nothing your components already transition on
+`transform`. Scope it to `[data-dnd-sorting]`, which is on every item of a group taking part in
+a sort, and leave the dragged item out (it follows the pointer):
+
+```css title="list.css"
+.item[data-dnd-sorting]:not([data-dnd-dragging]) {
+    transition: translate 180ms ease;
+}
+```
+
+With Tailwind, the same rule as variants:
+
+```tsx title="styles.ts"
+export const item = cn(
+    "rounded border p-3",
+    // the neighbours glide aside during a sort; the drop does not animate
+    "data-dnd-sorting:transition-[translate] data-dnd-sorting:duration-200",
+    "data-dnd-dragging:transition-none data-dnd-dragging:shadow-lg",
+);
+```
+
+<Example id="sortable-list" />
+
+## Why the scope matters
+
+At the drop, two things happen in the same frame: your `onSortEnd` puts the items in their new
+order, and the core clears the shifts. Each item is then already where its shift had moved it, so
+nothing should move. A transition that is still on at that moment would animate the cleared
+shift, from the old offset back to zero, and the items would slide away and back.
+
+`data-dnd-sorting` is removed in that same frame, so a transition that applies only while it is
+present is off by the time the browser takes the new style: the drop never animates. A cancel
+works the same way, which makes the items jump straight back; for a glide home on cancel, see
+[gliding home](/docs/guides/styling#the-translate-transition-gliding-home).
+
+## Reduced motion
+
+Respect the reader's setting in the same rule:
+
+```css title="list.css"
+@media (prefers-reduced-motion: reduce) {
+    .item[data-dnd-sorting] {
+        transition: none;
+    }
+}
+```
+
+In Tailwind, `motion-safe:data-dnd-sorting:transition-[translate]`.
+
+## Scroll containers
+
+In a scroll container whose children shift, set `overflow-anchor: none`. Firefox may take a
+shifted item as its scroll anchor and scroll the container back by the item's shift when the
+core clears it:
+
+```css title="list.css"
+.list {
+    overflow: auto;
+    overflow-anchor: none; /* Firefox: a shifted item is not a scroll anchor */
+}
+```
+
+## Swaps
+
+A swap's target moves by its `translate` too, and is marked `data-dnd-swap-target` meanwhile:
+`.tile[data-dnd-swap-target] { transition: translate 150ms; }` glides it into the source's place.
+When the pointer leaves it, or the swap drops, the attribute and the shift are removed together,
+so the transition is already off: it goes home (or into its new place) without animating.
+
+## What is measured is the rest
+
+The core measures every item's box without the shifts it wrote, from the computed `translate`,
+so even mid-way through your transition the preview's places never feed back on themselves. A
+longer transition never makes the list jitter; it only makes it slower to follow.

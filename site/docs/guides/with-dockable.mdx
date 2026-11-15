@@ -1,6 +1,6 @@
 ---
 title: With Dockable
-description: Drop a card on a Dockable tabset to open a tab through tab.add, drag inside panels that move, and write one rule that spans both libraries.
+description: Drop a card on a Dockable tabset to open a tab, drag and sort inside panels that move or pop out, and write one rule that spans both libraries.
 ---
 
 dnd and [Dockable](https://fragiola.com/dockable) compose without depending on each other: the
@@ -91,6 +91,41 @@ A panel clips its content, so a card dragged out of it would vanish at its edge:
 `translate={false}` and let a [`DragOverlay`](/docs/api/drag-overlay) carry a copy across panels.
 
 <Example id="dockable-panels" />
+
+## A sortable list inside panels
+
+A sortable list works the same way. Its items register in their document's drag space and the
+list is measured when a sort starts, so after Dockable moves the panel to another tabset the
+items sort where they are now, with nothing to update:
+
+```tsx title="panel.tsx"
+import { DragOverlay } from "@fragiola/dnd-react";
+import { moveBetween, Sortable } from "@fragiola/dnd-react/sortable";
+
+<Dockable.Panel node={tab}>
+    <ul aria-label="Tasks" className="list">
+        {tasks.map((id, index) => (
+            <Sortable key={id} id={id} index={index} group="tasks" translate={false} onSortEnd={onSortEnd}>
+                <li className="task data-dnd-dragging:opacity-50">{taskOf(id).title}</li>
+            </Sortable>
+        ))}
+    </ul>
+</Dockable.Panel>;
+
+<DragOverlay>{(operation) => <div className="task lifted">{taskOf(operation.source.id).title}</div>}</DragOverlay>;
+```
+
+A panel clips its content, so here too `translate={false}` keeps the dragged item in the list,
+shifted to where it would land as its placeholder, and the overlay carries the copy. Two lists in
+two panels whose groups accept each other move items between panels.
+
+Popped out into a window, the panel's elements now belong to the popout's document, so they
+meet that document's drag space: the list sorts inside the window, and an overlay given that
+window's `document` (`<DragOverlay document={…}>`) shows the copy there. A sort never crosses
+windows. The playground's `interop/dockable-popout-sortable` scenario and its e2e (Chromium and
+Firefox) sort a list in the main window, in a popout, and again once it is docked back.
+
+<Example id="sortable-dockable" />
 
 ## Two drags, side by side
 

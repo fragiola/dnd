@@ -1,0 +1,90 @@
+---
+title: Groups, scopes and accepts
+description: How sortable and swappable items form lists, which lists take items from which, how an empty list is reached, and how a drop rule sees a sort.
+---
+
+A sortable or swappable item names its `group`: the list it belongs to. Items of one group are one
+list, ordered by their `index`. Groups live inside a scope (`scope`, the default scope when
+omitted), as draggables and droppables do: items of different scopes never meet.
+
+## Moving between groups
+
+The target decides, as a droppable's `accepts` does. A group takes items from another group when
+one of its members lists that group in `accepts`, or its predicate takes the item. A two-way move
+needs both groups to list each other:
+
+```tsx title="board.tsx"
+const COLUMNS = ["todo", "doing", "done"];
+
+// every column takes the others' cards
+<Sortable id={id} index={index} group="doing" accepts={COLUMNS}>
+    <li />
+</Sortable>;
+
+// a predicate of the item: { id, group, type, data }
+<Sortable id={id} index={index} group="done" accepts={(source) => source.type === "task"}>
+    <li />
+</Sortable>;
+```
+
+A refusing group is never entered: over it, the preview stays where it was. An item's own group
+always takes it. For a sortable group, "one of its members" means any of its items or its
+`SortableGroup`; for a swappable item, the target item itself decides.
+
+<Example id="swap-between-groups" />
+
+## An empty group needs a container
+
+A sortable group is found through its items, so a group with no items has nothing to drop onto.
+`SortableGroup` marks the group's container. It clones its child, like every wrapper, and
+renders no element of its own:
+
+```tsx title="column.tsx"
+import { Sortable, SortableGroup } from "@fragiola/dnd-react/sortable";
+
+<SortableGroup group="done" accepts={COLUMNS}>
+    <ul className="column">
+        {done.map((id, index) => (
+            <Sortable key={id} id={id} index={index} group="done" accepts={COLUMNS}>
+                <li />
+            </Sortable>
+        ))}
+    </ul>
+</SortableGroup>;
+```
+
+It is needed only to sort into a group while it is empty, or to the end of a container taller
+than its items. A non-empty list needs no wrapper. It can also carry the group's `strategy`,
+`data` (what a drop rule sees as the target's data) and `disabled` (a disabled group is never
+sorted into, nor within). See [`SortableGroup`](/docs/api/sortable-group).
+
+## A sort is a drop on a group
+
+When a sortable item's drag starts, every group of its scope becomes a drop target of that drag,
+an entry in the space whose id is the group's name, removed when the drag ends. So the space's
+drop middleware sees a sort exactly as a drop:
+
+- `ctx.payload` is `{ draggableId: <item id>, droppableId: <group> }`;
+- `ctx.target.data` is the `SortableGroup`'s `data`;
+- it runs as a dry run when the target group changes, and for real on release;
+- a veto puts the preview back home, and the drop reports `to` equal to `from`.
+
+```ts title="limit.ts"
+// a card coming into Doing, once it holds three (a sort within Doing still runs)
+space.use((ctx, next) =>
+    ctx.payload.droppableId === "doing" &&
+    !board.doing.includes(String(ctx.payload.draggableId)) &&
+    board.doing.length >= 3
+        ? { ok: false, error: { code: "vetoed", message: "Doing holds three cards." } }
+        : next(),
+);
+```
+
+`get("droppable-ids")` lists the groups only during a sort, and `can`/`check("drop")` know a group
+only then. A plain `Droppable` of the same scope under the pointer still takes the item (a trash
+zone): the list goes back to rest and `onSortEnd` reports `to` equal to `from`.
+
+<Callout type="warn" title="Group names are droppable ids">
+A group's name shares the id space of its scope's droppables. Keep group names and droppable ids
+distinct within a scope. Swappable items are drop targets too, under their own `id`.
+</Callout>

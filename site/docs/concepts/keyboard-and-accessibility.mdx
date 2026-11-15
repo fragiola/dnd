@@ -3,7 +3,7 @@ title: Keyboard and accessibility
 description: Grab, move, drop and cancel without a pointer, by steps or from target to target, and the names and announcements that stay the app's.
 ---
 
-Every draggable can be dragged with the keyboard, and the keyboard emits the same events as the
+Every draggable, sortable and swappable item can be dragged with the keyboard, and the keyboard emits the same events as the
 pointer, with `input: "keyboard"`.
 
 ## The keys
@@ -36,6 +36,29 @@ bottom, each row from its inline start. Down and the arrow toward the inline end
 <Example id="keyboard" />
 
 <Example id="rtl" />
+
+## Sortable and swappable
+
+Sortable and swappable items are always in a targets mode of their own; there is no `keyboard`
+option.
+
+| key | a sortable item | a swappable item |
+| --- | --- | --- |
+| Space or Enter | grabs it; while dragging, drops it in the slot the preview shows | grabs it; while dragging, swaps it with the target |
+| Arrow keys | one slot at a time in its group; past the group's end, on into the next accepting group in reading order | the next or previous swap target, in reading order |
+| Escape | cancels and restores every shift | cancels |
+
+Forward is down or toward the inline end, as in the targets mode. A refusing group is skipped. The
+drag events still name the source and the target (a sort's target is the group's name), so the
+live region can say where the item is, from `onSortOver`'s `to` (its group and index), in your
+words.
+
+The focus returns to the item after a drop within its group. Moved into another group, the item
+is a new element in the app's other list (React mounts it under its new parent), so giving it the
+focus is the app's: the example below focuses it from its `ref` once it mounts. A keyboard move
+does not scroll the destination into view.
+
+<Example id="sortable-keyboard" />
 
 ## What the wrappers never add
 

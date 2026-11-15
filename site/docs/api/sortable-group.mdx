@@ -1,0 +1,75 @@
+---
+title: SortableGroup
+description: The optional wrapper that marks a sortable group's container, so an item can be sorted into the group while it is empty or to the container's end.
+---
+
+`SortableGroup` marks the one element it wraps as the container of a sortable group. It renders
+no element of its own. A list never needs it to sort within itself; it is needed only to sort
+into a group **while it is empty**, or to the end of a container taller than its items.
+
+```tsx title="column.tsx"
+import { Sortable, SortableGroup } from "@fragiola/dnd-react/sortable";
+
+<SortableGroup group="done" accepts={["todo", "doing"]}>
+    <ul aria-label="Done" className="column data-dnd-sorting:outline-dashed">
+        {done.map((id, index) => (
+            <Sortable key={id} id={id} index={index} group="done" accepts={["todo", "doing"]}>
+                <li>{id}</li>
+            </Sortable>
+        ))}
+    </ul>
+</SortableGroup>;
+```
+
+## Props
+
+| prop | type | default | |
+| --- | --- | --- | --- |
+| `group` | `string` | required | the group whose container it is |
+| `scope` | `string` | the default scope | its group's scope |
+| `space` | `DragSpace` | its document's | an explicit space from `createDragSpace` |
+| `data` | `unknown` | | what the drop middleware sees as the target's data (`ctx.target.data`) |
+| `disabled` | `boolean` | `false` | the group is never sorted into, nor within |
+| `accepts` | `string[] \| (source: SortSource) => boolean` | | the other groups whose items it takes, with its items' own `accepts` |
+| `strategy` | `SortStrategy` | its items', else `verticalList` | how the group places and shifts items |
+| `className`, `style`, `render`, `ref`, `children` | | | as on [`Draggable`](/docs/api/draggable#props), with the group's state |
+
+Any other prop is forwarded to the element.
+
+## Where an item lands
+
+In an empty group, the item lands at the container's inline-start top corner. Use padding on the
+container to place it. An item coming from another group over the container, but over none of
+its items, goes to the end. Once the item is in the group, a place between items does not change
+it.
+
+## State
+
+`{ sorting: boolean; disabled: boolean }`, given to `className`, `style` and `render`. `sorting`
+is true while a sort its group takes part in runs: the source's group, or one that accepts it.
+
+## Attributes
+
+| attribute | when |
+| --- | --- |
+| `data-dnd-part="sortable-group"` | always |
+| `data-dnd-id` | always: the `group` |
+| `data-dnd-sorting` | a sort it takes part in runs |
+| `data-dnd-disabled`, `aria-disabled="true"` | `disabled` |
+
+<Example id="kanban" />
+
+## useSortableGroup
+
+`useSortableGroup(options)` takes the same options and returns `{ state, props }`: spread `props`
+(the registering `ref` and the attributes) onto the container's element.
+
+```tsx title="column.tsx"
+const { state, props } = useSortableGroup({ group: "done", accepts: COLUMNS });
+return <ul {...props} className={state.sorting ? "column open" : "column"} />;
+```
+
+## In the core
+
+`registerSortableGroup(element, options)` takes the same options and returns a registration
+(`update`, `unregister`, `getState`, `subscribe`).

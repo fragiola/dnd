@@ -1,0 +1,118 @@
+---
+title: Sortable lists
+description: Reorder a list, a row or a grid by pointer and keyboard with no wrapper around it. The core previews the move with translate shifts, and your state applies it.
+---
+
+A sortable item is a drag source that knows its place: its `group` (the list it belongs to) and
+its `index` in that list. Items of one group find each other through the document's drag space,
+so **a list needs no wrapper around it**: wrap each item, and the list is whatever element holds
+them.
+
+```tsx title="todo.tsx"
+import { arrayMove, Sortable } from "@fragiola/dnd-react/sortable";
+
+const [tasks, setTasks] = useState(["login", "export", "guide"]);
+
+<ul className="list">
+    {tasks.map((id, index) => (
+        <Sortable
+            key={id}
+            id={id}
+            index={index}
+            group="todo"
+            onSortEnd={(event) => {
+                if (!event.canceled) setTasks((now) => arrayMove(now, event.from.index, event.to.index));
+            }}
+        >
+            <li className="task">{id}</li>
+        </Sortable>
+    ))}
+</ul>;
+```
+
+What stays yours: the data and its order, the look of the dragged item and of its neighbours, and
+the animation of the shifts ([animating shifts](/docs/guides/animating-shifts)).
+
+<Example id="sortable-list" />
+
+## The preview is written by the core
+
+While an item is dragged, its neighbours make room for it. The core writes each shifted item's
+CSS `translate` (never `transform`), computed from every item's box **at rest**, once per frame at
+most and only when the preview changes:
+
+- the DOM never moves, so the drag's pointer capture is never lost and React never reconciles
+  anything the core wrote;
+- React does not render during the drag: the items re-render at the sort's start and end only
+  (`data-dnd-sorting`);
+- the boxes at rest are measured without the shifts (even mid-way through your transition), at
+  the start and after a scroll or a resize, so a shift never feeds back into the place it shows
+  and auto-scroll re-measures without a jump.
+
+The dragged item follows the pointer as a draggable does. With `translate={false}` (a
+[`DragOverlay`](/docs/api/drag-overlay) shows it) it is shifted to where it would land instead,
+as its own placeholder.
+
+## Your state applies the result
+
+`onSortEnd` reports `{ id, from: { group, index }, to: { group, index }, canceled }`, where `to`
+is exactly what the preview showed. Apply it to your own state with the pure helpers,
+[`arrayMove`](/docs/api/helpers#arraymove) for one list or
+[`moveBetween`](/docs/api/helpers#movebetween) for several. The core clears the shifts after your
+callbacks and the page's listeners ran, so React renders the new order in the same frame the
+shifts disappear: no jump, no flicker.
+
+| the drag ends | `to` | `canceled` |
+| --- | --- | --- |
+| released over a place of a group | where the preview put it | `false` |
+| released outside every group | the last place the preview showed | `false` |
+| released over a plain `Droppable` of the scope | `from` (the list goes back to rest) | `false` |
+| vetoed by a drop middleware | `from` | `false` |
+| Escape, `pointercancel`, a lost capture | `from` | `true` |
+
+## Strategies
+
+A strategy is a pure function that answers two questions over a group's boxes at rest: where the
+source goes for the dragged box's centre, and how far every item shifts for that move. Each is its
+own export, so an app ships only the ones it uses:
+
+| strategy | for |
+| --- | --- |
+| `verticalList` (the default) | a column of items of any height |
+| `horizontalList` | a row of items of any width, flowing from the inline start (the right, in RTL) |
+| `grid` | a wrapping grid in reading order, RTL aware; best with items of one size |
+
+```tsx title="gallery.tsx"
+import { grid, Sortable } from "@fragiola/dnd-react/sortable";
+
+<Sortable id={photo.id} index={index} group="photos" strategy={grid}>
+    <figure />
+</Sortable>;
+```
+
+Over an item, the source takes its place; between items (a gap, the end of a row) the place does
+not change, so the preview never flickers in the gaps. The grid adds hysteresis at row
+boundaries: entering an item of another row needs the probe a quarter of that item's height
+inside it. See [the strategies](/docs/api/sortable#strategies) for the details.
+
+<Example id="sortable-grid" />
+
+## Right to left
+
+Nothing to configure: the horizontal list and the grid read the item's `direction` and flow from
+the right, and the keyboard's forward is the inline end.
+
+<Example id="sortable-rtl" />
+
+## By keyboard
+
+A sortable item is a tab stop. Space or Enter grabs it, the arrows move it one slot (down and the
+arrow toward the inline end go forward), on into the next accepting group past a group's end,
+Space or Enter drops it, and Escape cancels and restores every shift. See
+[keyboard and accessibility](/docs/concepts/keyboard-and-accessibility#sortable-and-swappable).
+
+## Several lists
+
+Items of different groups form different lists. A group takes items of another group only when it
+accepts them, which makes a kanban: see [groups](/docs/concepts/groups) and the
+[kanban guide](/docs/guides/kanban).

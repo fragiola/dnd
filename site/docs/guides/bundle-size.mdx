@@ -1,6 +1,6 @@
 ---
 title: Bundle size
-description: What each entry costs on a production build, how it is measured, why the draggable entry misses its target, and how to ship less.
+description: What each entry costs on a production build, how it is measured, why the drag sources miss their targets, and how to ship less.
 ---
 
 Size is a feature: each capability is its own entry, and an app ships only what it imports.
@@ -14,31 +14,54 @@ dropped (`process.env.NODE_ENV` set to `"production"`, as an app's bundler does)
 | imported | min + gzip | over the shared entry | target |
 | --- | --- | --- | --- |
 | `@fragiola/dnd-react` | 3.6 KB | | ≤ 4 KB |
-| `@fragiola/dnd-react` + `/draggable` | 8.0 KB | 4.3 KB | ≤ 2 KB extra |
+| `@fragiola/dnd-react` + `/draggable` | 8.3 KB | 4.6 KB | ≤ 2 KB extra |
 | `@fragiola/dnd-react` + `/droppable` | 4.8 KB | 1.1 KB | ≤ 1.5 KB extra |
-| all three | 8.4 KB | 4.7 KB | |
-| only `Draggable` | 6.3 KB | | |
-| only `Droppable` | 3.0 KB | | |
+| `@fragiola/dnd-react` + `/sortable` | 11.1 KB | 7.4 KB | ≤ 2.5 KB extra |
+| `@fragiola/dnd-react` + `/swappable` | 9.0 KB | 5.4 KB | ≤ 1.5 KB extra |
+| the shared entry, `/draggable`, `/droppable` | 8.8 KB | 5.2 KB | |
+| those three + `/sortable` | 11.7 KB | 2.9 KB over those three | |
+| those three + `/swappable` | 9.7 KB | 0.9 KB over those three | |
+| all five | 12.4 KB | 8.8 KB | |
+| only `Draggable` | 6.6 KB | | |
+| only `Droppable` | 3.1 KB | | |
+| only `Sortable` | 8.7 KB | | |
+| only `Swappable` | 7.2 KB | | |
 
 Measured on this repository's build (rolldown's minifier, then gzip); a consumer's bundler gets
 close to it. The report also lists each built file and chunk.
 
 ## Why the draggable entry is the largest
 
-It misses its target (+4.3 KB against +2 KB). Most of it is behaviour every draggable needs and
+It misses its target (+4.6 KB against +2 KB). Most of it is behaviour every draggable needs and
 the core carries in the draggable capability: the pointer sensor (activation by distance or by a
 held touch, pointer capture, the press claim and the focus it gives back), the keyboard sensor
 (steps, and the targets mode in reading order), the drag operation (measurement, collision, the
 once-per-frame `translate` writer, the events) and the guards that keep a throwing callback from
 leaving the space stuck. A droppable only registers itself and reacts, so it is small.
 
+## Sortable and swappable
+
+Both miss their targets too (sortable +7.4 KB against +2.5 KB, swappable +5.4 KB against
++1.5 KB, over the shared entry). The targets were set "on top of the shared core", but a sortable
+or a swappable item is a drag source: it carries the same drag-source machinery as a draggable
+(the pointer and keyboard sensors, the operation, the writer), about 4.6 KB that lives in the
+shared core so that no capability imports another. That machinery is paid once: over the
+draggable and droppable entries, sortable adds 2.9 KB (the strategies, the groups as drop
+targets, the keyboard's slots) and swappable 0.9 KB. An app that sorts and drags ships the
+machinery once.
+
 ## Shipping less
 
 - **Import only the capabilities you use.** A page that only drops (files from another part of
-  the app) imports `/droppable`; one that only drags imports `/draggable`.
+  the app) imports `/droppable`; one that only drags imports `/draggable`; a list that only
+  sorts imports `/sortable`, without `/draggable`.
+- **Strategies are separate exports**: `verticalList` is the default; `horizontalList` and
+  `grid` stay out of a bundle that does not import them.
 - **Opt-in pieces stay out until imported**: `autoScroll`, `DragOverlay`, the collision
   strategies other than the default, and the monitor.
 - **No namespace object**: there is no `Dnd.*` gathering every part, on purpose.
 
-A bundle test proves it: a fixture importing only `Draggable` fails the test when droppable code
-is in the output, and the same for each capability.
+A bundle test proves it: a fixture importing only `Draggable` fails the test when droppable,
+sortable or swappable code is in the output, and the same for each capability (only `Sortable`
+ships no swappable, draggable-only or droppable code; only `Swappable` none of sortable,
+draggable-only or droppable).

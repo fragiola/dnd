@@ -302,6 +302,8 @@ and the source beside the stage; the state is in the URL
 - **Scenarios** (`src/scenarios/<area>/<id>.tsx`) are dev-only and never shipped: one file each,
   a default export only, grouped by area (`drag`, `drop`, `keyboard`, `interop`, `api`). The Grid
   Layout integrations live here, behind the `../grid-layout` alias (D12).
+- **Dockable popouts** open `public/popout.html` (an empty page Dockable fills); the
+  `interop/dockable-popout-sortable` scenario and its e2e drive the popout window.
 - **Fixtures** (`fixtures/<name>/`) are the unstyled pages Playwright drives; the sidebar links
   them. `basic/` and `rtl/` are one page (`fixtures/fixture.tsx`) in each direction, driven by one
   spec (`e2e/fixture.spec.ts`; `e2e/fixture.touch.spec.ts` on a phone); `sortable/` and
