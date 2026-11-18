@@ -202,6 +202,11 @@ describe("core package guard", () => {
     });
 
     it("has an entry per capability folder, in both packages and both export maps (D3)", () => {
+        // the core also has its adapter-only entry (`src/adapter.ts`), which no adapter re-exports
+        const extra: Record<string, readonly string[]> = {
+            core: ["adapter"],
+            react: [],
+        };
         for (const pkg of ["core", "react"]) {
             const manifest = JSON.parse(
                 readFileSync(join(packages, pkg, "package.json"), "utf8"),
@@ -210,9 +215,14 @@ describe("core package guard", () => {
                 publishConfig: { exports: Record<string, unknown> };
                 sideEffects: unknown;
             };
-            const folders = CAPABILITIES.filter((capability) =>
-                existsSync(join(packages, pkg, "src", capability, "index.ts")),
-            );
+            const folders = [
+                ...CAPABILITIES.filter((capability) =>
+                    existsSync(
+                        join(packages, pkg, "src", capability, "index.ts"),
+                    ),
+                ),
+                ...(extra[pkg] ?? []),
+            ];
             const subpaths = (map: Record<string, unknown>) =>
                 Object.keys(map)
                     .filter((key) => key !== "." && key !== "./package.json")
