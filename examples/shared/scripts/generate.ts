@@ -9,7 +9,7 @@
 // file is text for the framework app: this package imports no framework itself.
 
 import { writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { type Framework, isFramework } from "../src/framework.ts";
 import {
     type ExampleEntry,
@@ -77,7 +77,8 @@ export async function generateLoaders(app: ExamplesApp): Promise<number> {
     return examples.length;
 }
 
-if (import.meta.main) {
+// run as a script (`import.meta.main` would need Node 24.2; engines allows any 24)
+if (import.meta.filename === resolve(process.argv[1] ?? "")) {
     const [framework] = process.argv.slice(2);
     if (!isFramework(framework)) {
         console.error("usage: node scripts/generate.ts <react|vue|angular>");
