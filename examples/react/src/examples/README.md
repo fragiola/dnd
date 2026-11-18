@@ -1,22 +1,35 @@
 # Examples
 
 Each folder is one example of the site's gallery (`fragiola.com/dnd/examples/<folder>`), rendered
-alone by this app at `index.html?id=<folder>`.
+alone by this app at `index.html?id=<folder>`. This app holds only what a reader copies; what every
+framework's examples app shares lives once in `examples/shared` (`examples-shared`, private, it
+imports no framework):
 
 ```
-src/examples/
+examples/react/src/examples/
   <slug>/index.tsx     the example (default export, "use client")
-  <slug>/meta.ts       title, description, category, order, features, docs link, layout, height
   <slug>/styles.ts     how it looks: one class string (or state function) per part
   <slug>/*.ts(x)       optional sibling files, shown in the code panel
   _kit/                shared demo content and app logic (cards, reordering data, announcements,
                        the Dockable and Grid Layout glue); no Draggable or Droppable, no styles
-  _themes/             the five themes (one CSS file each, values only) and their list
+
+examples/shared/
+  src/meta/<slug>.ts   each example's metadata, for every framework: title, description,
+                       category, order, features, docs link, layout, height
+  src/meta-types.ts    its shape, and the categories
+  src/themes/          the five themes (one CSS file each, values only) and their list
+  src/embed/           the embed's messages with the site (ready, resize, theme)
+  scripts/             the manifest builder and the loader generator, parametrized by framework
+  e2e/                 every Playwright spec, run by each framework's app against its own embed
 ```
+
+An example keeps its id in every framework. A framework may ship a subset: its manifest lists the
+examples its app has, and a spec of an example it lacks is skipped, not failed.
 
 ## Categories
 
-The gallery groups examples by the feature they show (`CATEGORIES` in `meta-types.ts`, in sidebar
+The gallery groups examples by the feature they show (`CATEGORIES` in
+`examples/shared/src/meta-types.ts`, in sidebar
 order; the site export contract calls a category a `level`). An example belongs where a reader
 looking for its feature would search, and `order` is its place inside the category.
 
@@ -35,14 +48,18 @@ looking for its feature would search, and `order` is its place inside the catego
 
 ## Adding an example
 
-1. Create `src/examples/<slug>/index.tsx`, `meta.ts` and `styles.ts` (see `meta-types.ts`).
+1. Create `src/examples/<slug>/index.tsx` and `styles.ts`, and its metadata in
+   `examples/shared/src/meta/<slug>.ts` (see `meta-types.ts`): a folder without metadata fails a
+   test.
 2. `pnpm dev` at the root lists it in the playground (`apps/playground`), with hot reload, the five
    themes and its source: `http://localhost:5173/?example=<slug>`. The embed alone is
    `pnpm --filter examples-react dev` (`http://localhost:5183/?id=<slug>`, it regenerates the
    loaders).
 3. The smoke e2e visits it in the reference theme (every theme only for the representative
-   examples in `e2e/smoke.spec.ts`; `E2E_ALL_THEMES=1` runs them all), and inside an iframe. Add
-   a spec for its main behaviour in `e2e/examples/<slug>.spec.ts`.
+   examples in `examples/shared/e2e/smoke.spec.ts`; `E2E_ALL_THEMES=1` runs them all), and inside
+   an iframe. Add a spec for its main behaviour in `examples/shared/e2e/examples/<slug>.spec.ts`,
+   reaching the example only through `data-dnd-*`, roles and accessible names, so every
+   framework's app runs it unchanged.
 
 ## Anatomy of an example
 
@@ -66,7 +83,7 @@ theme's CSS, and nothing else.
   live region's text. The packages render no text (D6).
 - **Tokens, not values that differ per theme**: fonts, padding, corners, the placeholder, the
   handles and the focus ring read the `--dnd-*` tokens each theme declares (listed in
-  `_themes/<name>.css`).
+  `examples/shared/src/themes/<name>.css`).
 
 ## Rules
 

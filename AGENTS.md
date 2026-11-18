@@ -12,14 +12,17 @@ is Fragiola's, shared with Dockable (`../dockable`), Grid Layout (`../grid-layou
 React wrappers that act **on the element they wrap**, **no mandatory provider**, every capability
 its own entry, and easy composition with Dockable and Grid Layout.
 
-Other adapters may follow React, so **every piece of logic that isn't rendering lives in the core**.
+Other adapters follow React (Vue, then Angular: the next Epics), so **every piece of logic that isn't
+rendering lives in the core**, and what only an adapter calls is the core's `@fragiola/dnd/adapter`
+entry ([The adapter kit](#the-adapter-kit-fragioladndadapter)).
 
 | package                  | name                  | contains                                                                                                                                             | depends on                                                      |
 | ------------------------ | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
 | `packages/core`          | `@fragiola/dnd`       | the shared core (drag space, sensors, collision, events, types) and one entry per capability (`/draggable`, `/droppable`, `/sortable`, `/swappable`) | DOM only, zero runtime deps                                     |
 | `packages/react`         | `@fragiola/dnd-react` | the wrappers and hooks of each capability, re-exporting the core entry by entry: **all a React app installs**                                        | `@fragiola/dnd` (same version), peer `react`, `react-dom` (^19) |
 | `apps/playground`        | private               | the dev app (every site example live, dev-only scenarios, themes and source), unstyled fixture pages driven by Playwright                            | both packages, `examples/react`                                 |
-| `examples/react`, `site` | private               | the site's examples (the embed app) and pages, exported for fragiola.com                                                                             |                                                                 |
+| `examples/shared`        | `examples-shared`     | what every framework's examples share: metadata, themes, embed protocol, manifest builder, loader generator, every e2e spec; imports no framework    |                                                                 |
+| `examples/react`, `site` | private               | the site's React examples (the embed app) and pages, exported for fragiola.com                                                                       | `examples-shared`                                               |
 
 ## Non-negotiable rules
 
@@ -40,9 +43,10 @@ an implementation detail.
    the first derived file lands, and each package ships an identical copy.
    `packages/core/tests/guard.test.ts` lists the derived files (`DERIVED`) and the notice lines
    (`NOTICES`). Code reused from a Fragiola sibling (`useRender`, `mergeProps`, `check-dts.ts`,
-   `size-report.ts`, `site/contract.ts`, `site/export.ts`, `source-condition.ts`, …) carries the
-   lighter header `// From Grid Layout (fragiola/grid-layout, <path>), same author and licence.`
-   (or Dockable's, or Data Grid's).
+   `size-report.ts`, `site/contract.ts`, `source-condition.ts`, …) carries the lighter header
+   `// From Grid Layout (fragiola/grid-layout, <path>), same author and licence.` (or Dockable's,
+   as the multi-framework `examples/shared` and `site/{export,dev,dev-proxy,sources}.ts` do, or
+   Data Grid's).
 3. **Entries are capabilities (D3).** The layering is:
 
    ```
@@ -56,7 +60,8 @@ an implementation detail.
    Each subpath exists in both packages: `@fragiola/dnd/draggable` holds the logic, and
    `@fragiola/dnd-react/draggable` adds the wrapper and re-exports it. `sideEffects: false`, ESM
    only, `exports` with the `@fragiola/source` condition and a dist-only `publishConfig.exports`,
-   one tsdown entry per subpath. **No single namespace object** (`Dnd.*`), because a namespace
+   one tsdown entry per subpath. The core has one more entry, `./adapter`, of the shared core and
+   for adapters only (no adapter re-exports it). **No single namespace object** (`Dnd.*`), because a namespace
    gathers every capability into one import: **this is a deliberate deviation from the Fragiola
    "one namespace" rule**, made for the bundle-size requirement. Parts are named exports of their
    capability's entry. **A capability never imports another capability**: it imports only the
@@ -79,7 +84,9 @@ an implementation detail.
    type fixture keep it exact). Keys are kebab-case, typed by registries (`DragSpaceGetMap`,
    `DragSpaceIsMap`, `DragSpaceRunMap`, `DragSpaceCheckMap`); a new read or question is a new key,
    never a new method. `run` and `check` return a `CommandResult` and never throw. What only an
-   adapter calls is under `space.adapter`; `registerDraggable`/`registerDroppable` use it.
+   adapter calls is under `space.adapter`; `registerDraggable`/`registerDroppable` use it. What only
+   a framework adapter calls and belongs to no space (the state slot, the handle link, the option
+   rule) is the `@fragiola/dnd/adapter` entry.
 5. **The core (D5).** Framework-free and **zero runtime dependencies**. It never imports `react`.
    It never touches global `document`/`window`/`requestAnimationFrame`/`ResizeObserver`/
    `getComputedStyle`; all DOM access goes through an element's `ownerDocument`/`defaultView`. A
@@ -264,21 +271,43 @@ renders it, so a swap preview commits nothing).
 Nothing is published yet: no npm release, no Changesets, no GitHub Actions workflow, no www
 registration, until the maintainer validates the library.
 
+## Several frameworks (Epic #14)
+
+Each adapter is a package and an examples app; everything else is shared and driven by lists
+(`guidelines/architecture/core-and-adapters.md`, "A repository with several adapters", after
+Dockable's Epic #131). Adding a framework is:
+
+1. its package, `packages/<framework>` (`@fragiola/dnd-<framework>`), on the core's
+   `@fragiola/dnd/adapter`;
+2. its examples app, `examples/<framework>` (`examples-<framework>`), with the same scripts as
+   `examples/react`: `generate` (`node ../shared/scripts/generate.ts <framework>`), `dev` (with
+   `EMBED_BASE` and `PORT`), `build` (with `EMBED_BASE` and `EMBED_OUT_DIR`), `typecheck`, `e2e`
+   (its `playwright.config.ts` is `examplesE2eConfig("<framework>")`), importing the themes, the
+   embed messages and the metadata from `examples-shared`; its example folders reuse the React
+   ids, each with its framework's entry file (`ENTRY_FILES` in `examples/shared/src/framework.ts`);
+3. the framework in `site/project.json`'s `frameworks`.
+
+No edit to the site logic, the manifest builder or the specs: `site:export` builds one embed and
+one manifest per framework, `site:dev` serves them all on one port, and `pnpm e2e` runs every
+examples app. A spec whose example a framework lacks is skipped (`requireExamples`, called by
+`openExample`). The package check, CI and Changesets come later from the `chore/release-setup`
+branch, which then lists each adapter's smoke app.
+
 ## Commands
 
-| command                                    | does                                                                                                                                              |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm install`                             | install dependencies                                                                                                                              |
-| `pnpm check`                               | Biome lint + format + assist (non-mutating)                                                                                                       |
-| `pnpm check:fix`                           | Biome check with auto-fix                                                                                                                         |
-| `pnpm typecheck`                           | `pnpm -r typecheck` (TypeScript 7, no emit)                                                                                                       |
-| `pnpm test`                                | Vitest: `core` (node), `react` (jsdom), `playground`, `examples-react`, `site`                                                                    |
-| `pnpm build`                               | `pnpm -r build` (tsdown for the packages, Vite for the apps), then the `.d.ts` check                                                              |
-| `pnpm size`                                | the bundle sizes of every entry point (raw, gzip, min + gzip): a report, after `pnpm build`                                                       |
-| `pnpm e2e`                                 | Playwright: the playground (Chromium, Firefox) and the examples app (Chromium, built and served under `/dnd/embed/react/`, also inside an iframe) |
-| `pnpm dev`                                 | the playground on <http://localhost:5173>: every example and scenario live, the fixtures (`PLAYGROUND_PORT` moves it)                             |
-| `pnpm site:export --base /dnd --out <dir>` | the site export for fragiola.com (contract v1.2, `../www/CONTRACT.md`), self-validated                                                            |
-| `pnpm site:dev --base /dnd --port 5183`    | the examples app with hot reload, under the base `www` proxies in dev                                                                             |
+| command                                    | does                                                                                                                                                                                          |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm install`                             | install dependencies                                                                                                                                                                          |
+| `pnpm check`                               | Biome lint + format + assist (non-mutating)                                                                                                                                                   |
+| `pnpm check:fix`                           | Biome check with auto-fix                                                                                                                                                                     |
+| `pnpm typecheck`                           | `pnpm -r typecheck` (TypeScript 7, no emit)                                                                                                                                                   |
+| `pnpm test`                                | Vitest: `core` (node), `react` (jsdom), `playground`, `examples-shared`, `examples-react`, `site`                                                                                             |
+| `pnpm build`                               | `pnpm -r build` (tsdown for the packages, Vite for the apps), then the `.d.ts` check                                                                                                          |
+| `pnpm size`                                | the bundle sizes of every entry point (raw, gzip, min + gzip): a report, after `pnpm build`                                                                                                   |
+| `pnpm e2e`                                 | Playwright: the playground (Chromium, Firefox) and every examples app (Chromium, the shared specs against its embed, built and served under `/dnd/embed/<framework>/`, also inside an iframe) |
+| `pnpm dev`                                 | the playground on <http://localhost:5173>: every example and scenario live, the fixtures (`PLAYGROUND_PORT` moves it)                                                                         |
+| `pnpm site:export --base /dnd --out <dir>` | the site export for fragiola.com (contract v1.2, `../www/CONTRACT.md`), self-validated                                                                                                        |
+| `pnpm site:dev --base /dnd --port 5183`    | every framework's examples app with hot reload, one dev server each behind one port (`site/dev-proxy.ts`), under the base `www` proxies in dev                                                |
 
 ## Repository layout
 
@@ -289,11 +318,15 @@ apps/playground/    src/                         the shell: catalog, sidebar, to
                     src/scenarios/<area>/<id>    dev-only scenarios: drag, drop, keyboard, interop, api
                     fixtures/<name>/             unstyled pages Playwright drives (LTR and RTL)
                     e2e/, tests/                 Playwright specs, unit tests
-examples/react/     src/examples/<slug>/         the site's examples (the embed app, Vite)
+examples/shared/    src/meta/<slug>.ts           every example's metadata, for every framework
+                    src/themes/, src/embed/      the five themes, the embed's messages with the site
+                    scripts/                     manifest builder, loader generator (per framework)
+                    e2e/                         every Playwright spec, also inside an iframe
+examples/react/     src/examples/<slug>/         the site's React examples (the embed app, Vite)
                     src/components, lib, …       Fragiola UI, vendored (scripts/vendor-fragiola.ts)
-                    e2e/                         Playwright specs, also inside an iframe
 site/               docs/                        the pages fragiola.com/dnd serves
                     export.ts, contract.ts       `pnpm site:export` and its validation
+                    dev.ts, dev-proxy.ts         `pnpm site:dev`: one port, one dev server per framework
 scripts/                                         the `.d.ts` check, the size report, the source condition
 ```
 
@@ -304,9 +337,10 @@ the core, the React wrappers and the examples. A sidebar, a theme switch (the fi
 and the source beside the stage; the state is in the URL
 (`?example=<slug>` or `?scenario=<area>/<id>`, `&theme=<name>&code=1`).
 
-- **Examples** live in `examples/react/src/examples` and are public: the site embeds them, readers
-  copy them. The playground reads them in place (`import.meta.glob`, the `#/` alias and the
-  pre-paint theme from `examples/react/vite.shared.ts`); it never keeps a second list.
+- **Examples** live in `examples/react/src/examples` (their metadata in
+  `examples/shared/src/meta`) and are public: the site embeds them, readers copy them. The
+  playground reads them in place (`import.meta.glob`, the `#/` alias and the pre-paint theme from
+  `examples/react/vite.shared.ts`); it never keeps a second list. It stays React-only.
 - **Scenarios** (`src/scenarios/<area>/<id>.tsx`) are dev-only and never shipped: one file each,
   a default export only, grouped by area (`drag`, `drop`, `keyboard`, `interop`, `api`). The Grid
   Layout integrations live here, behind the `../grid-layout` alias (D12).
@@ -400,6 +434,27 @@ Every wrapper follows the same rules (D6, D7). Tests enforce them; keep it that 
 - **Structural inline style only** (D7), and **state only through namespaced `data-dnd-*` and
   ARIA**, present or absent. e2e selectors use them, never class names.
 - **No provider, no context** (D4): a wrapper registers itself in its document's drag space.
+
+## The adapter kit (`@fragiola/dnd/adapter`)
+
+What every adapter takes from the core, so that an adapter only renders and wires (the Fragiola
+adapter rule): if an adapter needs a decision, it is a new member here, with a core test. It is an
+entry of the shared core (it imports no capability), no adapter re-exports it, and an app never
+imports it. `@fragiola/dnd-react` is built on it; a Vue or Angular adapter uses the same members.
+
+| member                                                                                                              | what it decides                                                                                                                                                                            |
+| ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `createSlot(fallback)`, `StateSlot`, `StateSource`                                                                  | a part's state as one external store that follows the registration of the moment (the fallback before mount and on the server); its snapshot keeps its identity until a field changes (D8) |
+| `optionsChanged(previous, next, keys)`                                                                              | an option change is an `update` only when a compared option differs; inline arrays and plain objects compare by content                                                                    |
+| `withLatestCallbacks(values, names, latest)`                                                                        | the callbacks the core holds call the latest ones, so an inline callback is never a change                                                                                                 |
+| `connectPart(element, register, options, slot)`                                                                     | registers the element, makes the slot follow it, `update()` re-reads `options()`, `disconnect()` undoes it all                                                                             |
+| `connectSource(…)`, `connectHandle(element, slot)`                                                                  | the same for a drag source, with the drag handle link through the DOM (the closest `[data-dnd-part~="draggable                                                                             | sortable | swappable"]`, whichever side attaches first); a handle shows its source's state and reports whether it is `linked` |
+| `followOverlay(space, view, scope?)`                                                                                | what a drag overlay shows (start, target changes, end, a drag already running) and its placing on each move, written by the core, never rendered                                           |
+| `draggableBinding`, `droppableBinding`, `sortableBinding`, `sortableGroupBinding`, `swappableBinding`, `handleRest` | each capability's compared options, callbacks and state before mount (a type fixture checks every option is covered)                                                                       |
+
+An adapter keeps the options of the moment, renders the part's attributes from its state and
+writes its own development messages (they name its own parts). Rendering a wrapper (cloning the
+child, `render`, merging props and refs) stays each framework's.
 
 ## Interop with the family
 
