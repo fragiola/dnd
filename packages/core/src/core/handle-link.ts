@@ -1,20 +1,21 @@
-// How a `DragHandle` and its drag source find each other without a context (D4): through the DOM.
-// A source's element carries `data-dnd-part="draggable"` (or `"sortable"`, `"swappable"`); a handle
-// is linked to the closest one around it. Refs attach children first, so each side looks for the other when it attaches:
-// a handle attached after its draggable finds it, and a draggable adopts the handles it already
-// contains. A component boundary between them changes nothing.
-import type { DraggableState } from "@fragiola/dnd";
-import type { StateSource } from "./useCoreState";
+// How a drag handle and its drag source find each other without a context (D4): through the DOM.
+// A source's element carries `data-dnd-part="draggable"` (or `"sortable"`, `"swappable"`); a
+// handle is linked to the closest one around it. Frameworks attach children first (React's refs,
+// Vue's and Angular's mounts alike), so each side looks for the other when it attaches: a handle
+// attached after its source finds it, and a source adopts the handle it already contains. A
+// component boundary between them changes nothing. Adapter-only (`@fragiola/dnd/adapter`).
+import type { StateSource } from "./slot";
+import type { DraggableState } from "./types";
 
 /** A drag source's element (a draggable, a sortable or a swappable item), as its handles see it. */
 export interface HandleOwner {
     /** makes `handle` the only place a drag starts (null: the element again) */
     setHandle(handle: HTMLElement | null): void;
-    /** the draggable's state, which its handle shows too */
+    /** the source's state, which its handle shows too */
     readonly source: StateSource<DraggableState>;
 }
 
-/** A mounted handle, as its draggable sees it. */
+/** A mounted handle, as its source sees it. */
 export interface HandleLink {
     connect(owner: HandleOwner): void;
     disconnect(owner: HandleOwner): void;
@@ -36,12 +37,12 @@ function join(link: HandleLink, owner: HandleOwner): void {
     link.connect(owner);
 }
 
-/** The draggable element a handle belongs to: the closest one around it. */
+/** The source element a handle belongs to: the closest one around it. */
 function ownerElement(handle: Element): Element | null {
     return handle.parentElement?.closest(SOURCE) ?? null;
 }
 
-/** The handle inside `element` that belongs to it (not to a draggable nested in it), if any. */
+/** The handle inside `element` that belongs to it (not to a source nested in it), if any. */
 export function handleIn(element: HTMLElement): HTMLElement | null {
     for (const handle of element.querySelectorAll<HTMLElement>(
         '[data-dnd-part~="handle"]',
@@ -51,7 +52,7 @@ export function handleIn(element: HTMLElement): HTMLElement | null {
     return null;
 }
 
-/** Registers a draggable's element for its handles; returns the removal. */
+/** Registers a source's element for its handles; returns the removal. */
 export function addOwner(element: HTMLElement, owner: HandleOwner): () => void {
     owners ??= new WeakMap();
     links ??= new WeakMap();
@@ -66,7 +67,7 @@ export function addOwner(element: HTMLElement, owner: HandleOwner): () => void {
     };
 }
 
-/** Registers a handle's element and links it to its draggable when there is one; the removal. */
+/** Registers a handle's element and links it to its source when there is one; the removal. */
 export function addHandle(element: HTMLElement, link: HandleLink): () => void {
     owners ??= new WeakMap();
     links ??= new WeakMap();

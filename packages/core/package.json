@@ -37,6 +37,12 @@
             "import": "./dist/index.js",
             "default": "./dist/index.js"
         },
+        "./adapter": {
+            "@fragiola/source": "./src/adapter.ts",
+            "types": "./dist/adapter.d.ts",
+            "import": "./dist/adapter.js",
+            "default": "./dist/adapter.js"
+        },
         "./draggable": {
             "@fragiola/source": "./src/draggable/index.ts",
             "types": "./dist/draggable.d.ts",
@@ -74,6 +80,11 @@
                 "types": "./dist/index.d.ts",
                 "import": "./dist/index.js",
                 "default": "./dist/index.js"
+            },
+            "./adapter": {
+                "types": "./dist/adapter.d.ts",
+                "import": "./dist/adapter.js",
+                "default": "./dist/adapter.js"
             },
             "./draggable": {
                 "types": "./dist/draggable.d.ts",

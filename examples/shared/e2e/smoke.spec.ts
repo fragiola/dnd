@@ -1,7 +1,8 @@
 import { expect, test } from "@playwright/test";
+import { listMetaSlugs } from "../scripts/examples-lib.ts";
 import { collectErrors, EXAMPLES, openExample, reset, THEMES } from "./helpers";
 
-// Every example mounts and logs no error, in the reference theme (the first of THEMES); a new
+// Every example of the framework under test mounts and logs no error, in the reference theme (the first of THEMES); a new
 // example folder is covered without touching this file. A theme is CSS (its shape is checked in
 // themes.spec.ts), so every theme runs on a representative set, not on every example.
 // `E2E_ALL_THEMES=1` runs every example in every theme.
@@ -21,7 +22,8 @@ const REPRESENTATIVE: string[] = [
     "sortable-dockable",
 ];
 
-const slugs = new Set(EXAMPLES.map((example) => example.slug));
+// a framework may ship a subset of the examples: a name must be an example of some framework
+const slugs = new Set(listMetaSlugs());
 const missing = REPRESENTATIVE.filter((slug) => !slugs.has(slug));
 if (missing.length > 0) {
     throw new Error(

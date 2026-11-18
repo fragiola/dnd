@@ -1,11 +1,16 @@
 // A drag handle (D9): inside a drag source's element (a draggable, a sortable or a swappable item),
 // the only place a drag starts, and its tab stop. It finds its source through the DOM
-// (`./utils/handles`), never a context, so the handle may sit deep inside the source, across any
-// component boundary. It is a shared part: each capability's entry re-exports it.
+// (`connectHandle` of `@fragiola/dnd/adapter`), never a context, so the handle may sit deep
+// inside the source, across any component boundary. It is a shared part: each capability's entry re-exports it.
 import type { DraggableState } from "@fragiola/dnd";
+import {
+    connectHandle,
+    createSlot,
+    type HandleConnection,
+    handleRest,
+} from "@fragiola/dnd/adapter";
 import * as React from "react";
-import { addHandle, type HandleLink, type HandleOwner } from "./utils/handles";
-import { createSlot, useSlotState } from "./utils/useCoreState";
+import { useSlotState } from "./utils/useCoreState";
 import type { WrapperProps } from "./utils/useRender";
 import { useWrap } from "./utils/useWrap";
 
@@ -20,46 +25,25 @@ export interface DragHandleProps extends WrapperProps<DraggableState> {
 // drops the checks and their messages.
 declare const process: { readonly env: { readonly NODE_ENV?: string } };
 
-const REST: DraggableState = { dragging: false, disabled: false };
-
 /** The handle's state (its draggable's) and props. */
 function useDragHandle(describedBy: string | undefined) {
     const [live] = React.useState(() => ({
-        slot: createSlot<DraggableState>(() => REST),
-        linked: false,
+        slot: createSlot<DraggableState>(() => handleRest),
+        connection: undefined as HandleConnection | undefined,
     }));
     const ref = React.useCallback(
         (element: HTMLElement | null) => {
             if (!element) return;
-            let owner: HandleOwner | undefined;
-            let detach: (() => void) | undefined;
-            const link: HandleLink = {
-                connect(next) {
-                    if (owner === next) return;
-                    if (owner) link.disconnect(owner);
-                    owner = next;
-                    live.linked = true;
-                    detach = live.slot.attach(next.source);
-                    next.setHandle(element);
-                },
-                disconnect(gone) {
-                    if (owner !== gone) return;
-                    owner = undefined;
-                    live.linked = false;
-                    detach?.();
-                    gone.setHandle(null);
-                },
-            };
-            const remove = addHandle(element, link);
+            const connection = connectHandle(element, live.slot);
+            live.connection = connection;
             return () => {
-                remove();
-                if (owner) link.disconnect(owner);
+                connection.disconnect();
             };
         },
         [live],
     );
     React.useEffect(() => {
-        if (process.env.NODE_ENV !== "production" && !live.linked)
+        if (process.env.NODE_ENV !== "production" && !live.connection?.linked)
             console.error(
                 '<DragHandle> is not inside a draggable, sortable or swappable element (`data-dnd-part="draggable"`, `"sortable"` or `"swappable"`): it has no effect.',
             );

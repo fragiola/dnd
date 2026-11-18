@@ -1,13 +1,15 @@
 // The sortable item hook (S2, D6): the lower layer `Sortable` is built on, over the shared
-// `useSource`. It re-renders at a sort's start and end only: the preview's shifts are written by
+// `usePart`. It re-renders at a sort's start and end only: the preview's shifts are written by
 // the core, never rendered (D8).
+
+import { connectSource, sortableBinding } from "@fragiola/dnd/adapter";
 import {
     registerSortable,
     type SortableOptions,
     type SortableState,
 } from "@fragiola/dnd/sortable";
 import type * as React from "react";
-import { type SourceBinding, useSource } from "../utils/useSource";
+import { type PartBinding, usePart } from "../utils/use-part";
 
 /** Options of {@link useSortable}: the core's, without `handle` (a `DragHandle` sets it). */
 export interface UseSortableOptions extends Omit<SortableOptions, "handle"> {
@@ -34,29 +36,10 @@ export interface UseSortableResult {
 }
 
 /** How the hook drives the core's sortable. */
-const BINDING: SourceBinding<UseSortableOptions, SortableState> = {
-    register: registerSortable,
-    compared: [
-        "id",
-        "index",
-        "group",
-        "type",
-        "data",
-        "scope",
-        "space",
-        "disabled",
-        "accepts",
-        "strategy",
-        "activation",
-        "autoScroll",
-        "translate",
-    ],
-    callbacks: ["onSortStart", "onSortOver", "onSortEnd"],
-    rest: (options) => ({
-        dragging: false,
-        sorting: false,
-        disabled: !!options.disabled,
-    }),
+const BINDING: PartBinding<UseSortableOptions, SortableState> = {
+    ...sortableBinding,
+    connect: (element, options, slot) =>
+        connectSource(element, registerSortable, options, slot),
 };
 
 /**
@@ -64,7 +47,7 @@ const BINDING: SourceBinding<UseSortableOptions, SortableState> = {
  * keyboard, with no provider and no wrapper around the list: spread `props` onto one element.
  */
 export function useSortable(options: UseSortableOptions): UseSortableResult {
-    const { state, ref } = useSource(BINDING, options);
+    const { state, ref } = usePart(BINDING, options);
     return {
         state,
         props: {

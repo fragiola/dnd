@@ -1,13 +1,15 @@
 // The swappable item hook (S3, D6): the lower layer `Swappable` is built on, over the shared
-// `useSource`. It re-renders at a swap's start and end only: the preview (the target's shift and
+// `usePart`. It re-renders at a swap's start and end only: the preview (the target's shift and
 // `data-dnd-swap-target`) is written by the core, never rendered (D8).
+
+import { connectSource, swappableBinding } from "@fragiola/dnd/adapter";
 import {
     registerSwappable,
     type SwappableOptions,
     type SwappableState,
 } from "@fragiola/dnd/swappable";
 import type * as React from "react";
-import { type SourceBinding, useSource } from "../utils/useSource";
+import { type PartBinding, usePart } from "../utils/use-part";
 
 /** Options of {@link useSwappable}: the core's, without `handle` (a `DragHandle` sets it). */
 export interface UseSwappableOptions extends Omit<SwappableOptions, "handle"> {
@@ -33,24 +35,10 @@ export interface UseSwappableResult {
 }
 
 /** How the hook drives the core's swappable. */
-const BINDING: SourceBinding<UseSwappableOptions, SwappableState> = {
-    register: registerSwappable,
-    compared: [
-        "id",
-        "index",
-        "group",
-        "type",
-        "data",
-        "scope",
-        "space",
-        "disabled",
-        "accepts",
-        "activation",
-        "autoScroll",
-        "translate",
-    ],
-    callbacks: ["onSwap"],
-    rest: (options) => ({ dragging: false, disabled: !!options.disabled }),
+const BINDING: PartBinding<UseSwappableOptions, SwappableState> = {
+    ...swappableBinding,
+    connect: (element, options, slot) =>
+        connectSource(element, registerSwappable, options, slot),
 };
 
 /**
@@ -59,7 +47,7 @@ const BINDING: SourceBinding<UseSwappableOptions, SwappableState> = {
  * element.
  */
 export function useSwappable(options: UseSwappableOptions): UseSwappableResult {
-    const { state, ref } = useSource(BINDING, options);
+    const { state, ref } = usePart(BINDING, options);
     return {
         state,
         props: {
