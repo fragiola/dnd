@@ -2,14 +2,16 @@
 // `props.ref` receives in that element's drag space (no provider, D4), follows option changes
 // with `update` (never a re-register; inline callbacks are read when called), unregisters when
 // the element goes, and re-renders only when the draggable's own state changes (D8): the shared
-// `useSource` does it all.
+// `usePart` does it all.
+
+import { connectSource, draggableBinding } from "@fragiola/dnd/adapter";
 import {
     type DraggableOptions,
     type DraggableState,
     registerDraggable,
 } from "@fragiola/dnd/draggable";
 import type * as React from "react";
-import { type SourceBinding, useSource } from "../utils/useSource";
+import { type PartBinding, usePart } from "../utils/use-part";
 
 /** Options of {@link useDraggable}: the core's, without `handle` (a `DragHandle` sets it). */
 export interface UseDraggableOptions extends Omit<DraggableOptions, "handle"> {
@@ -35,23 +37,10 @@ export interface UseDraggableResult {
 }
 
 /** How the hook drives the core's draggable. */
-const BINDING: SourceBinding<UseDraggableOptions, DraggableState> = {
-    register: registerDraggable,
-    compared: [
-        "id",
-        "type",
-        "data",
-        "scope",
-        "space",
-        "disabled",
-        "activation",
-        "keyboard",
-        "autoScroll",
-        "collision",
-        "translate",
-    ],
-    callbacks: ["onDragStart", "onDragMove", "onDragEnd", "onDragCancel"],
-    rest: (options) => ({ dragging: false, disabled: !!options.disabled }),
+const BINDING: PartBinding<UseDraggableOptions, DraggableState> = {
+    ...draggableBinding,
+    connect: (element, options, slot) =>
+        connectSource(element, registerDraggable, options, slot),
 };
 
 /**
@@ -59,7 +48,7 @@ const BINDING: SourceBinding<UseDraggableOptions, DraggableState> = {
  * spread `props` onto one element.
  */
 export function useDraggable(options: UseDraggableOptions): UseDraggableResult {
-    const { state, ref } = useSource(BINDING, options);
+    const { state, ref } = usePart(BINDING, options);
     return {
         state,
         props: {

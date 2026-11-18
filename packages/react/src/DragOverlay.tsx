@@ -3,14 +3,14 @@
 // space's document `body`, in a fixed box where the source would be (the core's `overlayStyle`),
 // inert to the pointer: for drags out of `overflow: hidden` containers and between scroll
 // containers. It re-renders on the drag's start, its target changes and its end; the pointer's
-// moves write its `left`/`top` directly (D8). Give the draggable `translate={false}` so the source
-// stays in place while the overlay moves.
+// moves write its `left`/`top` directly (D8): the core's `followOverlay` decides both. Give the
+// draggable `translate={false}` so the source stays in place while the overlay moves.
 import {
     type DragOperation,
     type DragSpace,
-    type DragSpaceEvent,
     overlayStyle,
 } from "@fragiola/dnd";
+import { followOverlay } from "@fragiola/dnd/adapter";
 import * as React from "react";
 import { createPortal } from "react-dom";
 import { useDragSpace } from "./useDragSpace";
@@ -50,14 +50,6 @@ interface OverlayProps {
     readonly style: React.CSSProperties;
 }
 
-/** Writes the overlay's position for `operation`, outside React. */
-function place(element: HTMLElement | null, operation: DragOperation): void {
-    if (!element) return;
-    const { left, top } = overlayStyle(operation);
-    element.style.left = `${left}px`;
-    element.style.top = `${top}px`;
-}
-
 /**
  * Shows the app's children under the pointer while a drag runs, portalled into the document's
  * `body`. It can sit anywhere in the tree; it needs no provider.
@@ -80,32 +72,20 @@ export function DragOverlay(props: DragOverlayProps): React.ReactNode {
 
     React.useEffect(() => {
         if (!space) return;
-        const show = (next: DragOperation | undefined) => {
-            latest.current = next;
-            setOperation(next);
-        };
-        // a drag already running when it mounts
-        const running = space.get("operation");
-        if (running && (scope === undefined || running.scope === scope))
-            show(running);
-        const off = space.subscribe(
-            (event: DragSpaceEvent) => {
-                if (event.type === "drag-move") {
-                    latest.current = event.operation;
-                    place(element.current, event.operation);
-                } else if (
-                    event.type === "drag-start" ||
-                    event.type === "drag-over"
-                )
-                    show(event.operation);
-                else show(undefined);
+        return followOverlay(
+            space,
+            {
+                show(next) {
+                    latest.current = next;
+                    setOperation(next);
+                },
+                move(next) {
+                    latest.current = next;
+                },
+                element: () => element.current,
             },
-            { scope },
+            scope,
         );
-        return () => {
-            off();
-            show(undefined);
-        };
     }, [space, scope]);
 
     const shown = latest.current ?? operation;

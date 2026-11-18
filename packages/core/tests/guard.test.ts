@@ -297,6 +297,29 @@ describe("core package guard", () => {
         expect(Object.keys(space.adapter)).toEqual(["register"]);
     });
 
+    it("keeps the adapter decisions in the core: the React adapter re-implements none, nor re-exports them", () => {
+        // the handle link, the state slot, the option-change rule and the overlay's following
+        // live in `@fragiola/dnd/adapter`; an adapter only renders and wires (main had them in
+        // `packages/react/src/utils/handles.ts` and `useCoreState.ts`)
+        const DECISIONS =
+            /function (createSlot|shallowEqual|optionsChanged|same|addOwner|addHandle|handleIn)\b|\.closest\(/;
+        const reactSrc = join(packages, "react", "src");
+        const copies = listFiles(reactSrc).flatMap((file) => {
+            const source = readFileSync(file, "utf8");
+            const match =
+                DECISIONS.exec(codeOnly(source)) ??
+                /data-dnd-part~=/.exec(source);
+            return match ? [`${relative(packages, file)}: ${match[0]}`] : [];
+        });
+        expect(copies).toEqual([]);
+        const reexported = listFiles(reactSrc).filter((file) =>
+            /export\s+\*\s+from\s+["']@fragiola\/dnd\/adapter["']/.test(
+                readFileSync(file, "utf8"),
+            ),
+        );
+        expect(reexported).toEqual([]);
+    });
+
     it("ships no CSS: styling is 100% the app's (D7)", () => {
         const css = ["core", "react"].flatMap((pkg) =>
             listFiles(join(packages, pkg, "src")).filter((file) =>
