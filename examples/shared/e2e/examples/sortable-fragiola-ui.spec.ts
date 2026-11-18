@@ -2,14 +2,15 @@ import { expect, test } from "@playwright/test";
 import { openExample } from "../helpers";
 import { center, drag, labels, named } from "./helpers";
 
-test("a Fragiola UI Avatar is the sortable item and keeps its own classes and slot", async ({
+test("a Fragiola UI Avatar is the sortable item and keeps its own look and slot", async ({
     page,
 }) => {
     await openExample(page, "sortable-fragiola-ui");
     const ada = named(page, "Ada Lovelace");
     await expect(ada).toHaveAttribute("data-slot", "avatar");
     await expect(ada).toHaveAttribute("data-dnd-part", "sortable");
-    await expect(ada).toHaveClass(/rounded-full/);
+    // its own look (a round avatar), merged with the wrapper's: read on the computed style
+    await expect(ada).not.toHaveCSS("border-radius", "0px");
     await drag(page, ada, named(page, "Grace Hopper"));
     const xs = await Promise.all(
         ["Alan Turing", "Grace Hopper", "Ada Lovelace", "Linus Torvalds"].map(

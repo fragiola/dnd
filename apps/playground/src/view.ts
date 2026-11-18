@@ -3,14 +3,14 @@ import {
     isThemeName,
     THEMES,
     type ThemeName,
-} from "#/examples/_themes/themes";
+} from "examples-shared/themes";
 
 // What the playground shows, entirely in the URL: a reload restores it and a link reproduces it.
 // Defaults are left out of the query.
 //
 //   ?example=<slug>        an example from examples/react/src/examples
 //   ?scenario=<area>/<id>  a scenario from src/scenarios
-//   &theme=<name>          an example theme (examples/react/src/examples/_themes/themes.ts)
+//   &theme=<name>          an example theme (examples/shared/src/themes/themes.ts)
 //   &code=1                the source panel
 //
 // The pre-paint script (examples/react/vite.shared.ts) puts the theme's scheme on <html> and the

@@ -1,8 +1,8 @@
 import { expect, test } from "@playwright/test";
 import { THEMES } from "./helpers";
 
-// The example themes (src/examples/_themes) belong to this app, so their checks run here, on
-// computed styles (verify by compiling, not by reading class names). Their shape on the examples is
+// The example themes (examples/shared/src/themes) are every framework's, so their checks run in
+// every framework's embed, on computed styles (verify by compiling, not by reading class names). Their shape on the examples is
 // checked by the examples' own specs.
 
 test("the themes paint different floors, whatever the page theme", async ({
