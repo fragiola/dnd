@@ -184,6 +184,13 @@ export function renderWrapper<State>(options: WrapOptions<State>): VNodeChild {
     if (nodes.length !== 1 || !wrappable(child)) return content;
     const childProps = (child.props ?? {}) as AnyProps;
     const clone = cloneVNode(child, extra, true);
+    // the wrapper's template ref before the child's own (Vue calls them in order, and cloning
+    // appends it), as React attaches it: the child's ref sees the element registered already
+    // (focusable, a refocus after a drop works)
+    if (Array.isArray(clone.ref)) {
+        const own = clone.ref.pop();
+        if (own) clone.ref.unshift(own);
+    }
     const merged = clone.props as AnyProps;
     for (const [key, value] of Object.entries(childProps)) {
         if (value === undefined || key === "class" || key === "style") continue;

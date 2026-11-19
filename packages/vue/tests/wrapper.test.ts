@@ -179,6 +179,27 @@ describe("the merge", () => {
         wrapper.unmount();
     });
 
+    it("gives the child's own template ref the element already registered", () => {
+        const seen: (string | null)[] = [];
+        render(
+            page(() =>
+                h(Draggable, { id: "a" }, () =>
+                    h("li", {
+                        ref: (element: unknown) => {
+                            if (element)
+                                seen.push(
+                                    (element as HTMLElement).getAttribute(
+                                        "tabindex",
+                                    ),
+                                );
+                        },
+                    }),
+                ),
+            ),
+        );
+        expect(seen[0]).toBe("0");
+    });
+
     it("lets the child's own plain props win over the wrapper's", () => {
         render(
             page(() =>
