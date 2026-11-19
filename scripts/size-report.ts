@@ -72,13 +72,32 @@ async function loadRolldown(): Promise<Rolldown | undefined> {
     }
 }
 
+/** An adapter package whose entries the report sizes, and the framework it leaves out. */
+const ADAPTERS = [
+    {
+        pkg: "react",
+        label: "React",
+        name: "@fragiola/dnd-react",
+        external: /^react(?:-dom)?(?:\/|$)/,
+    },
+    {
+        pkg: "vue",
+        label: "Vue",
+        name: "@fragiola/dnd-vue",
+        external: /^(?:vue|@vue\/[^/]+)(?:\/|$)/,
+    },
+] as const;
+
 /**
- * What an app ships for the React entries it imports, with the core they pull (D13): each set of
- * entries' every export, bundled from `dist` for production and minified, React left out, then
- * gzip.
+ * What an app ships for an adapter's entries it imports, with the core they pull (D13): each set
+ * of entries' every export, bundled from `dist` for production and minified, the framework left
+ * out, then gzip.
  */
-async function appSizes(rolldown: Rolldown): Promise<string[]> {
-    const dist = join(root, "packages", "react", "dist");
+async function appSizes(
+    rolldown: Rolldown,
+    adapter: (typeof ADAPTERS)[number],
+): Promise<string[]> {
+    const dist = join(root, "packages", adapter.pkg, "dist");
     if (!existsSync(dist)) return [];
     const size = async (entries: readonly string[], only?: string) => {
         const code = only
@@ -91,8 +110,8 @@ async function appSizes(rolldown: Rolldown): Promise<string[]> {
                   .join("\n");
         const build = await rolldown.rolldown({
             input: "app",
-            cwd: join(root, "packages", "react"),
-            external: /^react(?:-dom)?(?:\/|$)/,
+            cwd: join(root, "packages", adapter.pkg),
+            external: adapter.external,
             // an app's production build: the development checks are dropped
             transform: {
                 define: {
@@ -116,9 +135,9 @@ async function appSizes(rolldown: Rolldown): Promise<string[]> {
     };
     const shared = await size(["index"]);
     const rows = [
-        "| React entries imported (with the core) | min + gzip | over the shared entry | target |",
+        `| ${adapter.label} entries imported (with the core) | min + gzip | over the shared entry | target |`,
         "| --- | --- | --- | --- |",
-        `| \`@fragiola/dnd-react\` | ${kb(shared)} | | ≤ 4 KB |`,
+        `| \`${adapter.name}\` | ${kb(shared)} | | ≤ 4 KB |`,
     ];
     for (const [name, target] of [
         ["draggable", "≤ 2 KB extra"],
@@ -128,7 +147,7 @@ async function appSizes(rolldown: Rolldown): Promise<string[]> {
     ] as const) {
         const both = await size(["index", name]);
         rows.push(
-            `| \`@fragiola/dnd-react\` + \`/${name}\` | ${kb(both)} | ${kb(both - shared)} | ${target} |`,
+            `| \`${adapter.name}\` + \`/${name}\` | ${kb(both)} | ${kb(both - shared)} | ${target} |`,
         );
     }
     const three = await size(["index", "draggable", "droppable"]);
@@ -189,13 +208,19 @@ async function main() {
         }
     }
     const rolldown = await loadRolldown();
-    const app = rolldown ? await appSizes(rolldown).catch(() => []) : [];
+    const app: string[] = [];
+    for (const adapter of ADAPTERS) {
+        const rows = rolldown
+            ? await appSizes(rolldown, adapter).catch(() => [])
+            : [];
+        if (rows.length) app.push(...rows, "");
+    }
     const report = [
         "### Bundle sizes",
         "",
         ...lines,
         "",
-        ...(app.length ? [...app, ""] : []),
+        ...app,
         minify
             ? "min + gzip: rolldown's minifier, then gzip (a consumer's bundler gets close to it)."
             : "min + gzip: n/a (rolldown's minifier was not found).",

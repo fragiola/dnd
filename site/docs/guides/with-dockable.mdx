@@ -5,14 +5,16 @@ description: Drop a card on a Dockable tabset to open a tab, drag and sort insid
 
 dnd and [Dockable](https://fragiola.com/dockable) compose without depending on each other: the
 packages never import a sibling, and the glue is a few lines of app code. Install Dockable beside
-dnd (`pnpm add @fragiola/dockable-react`).
+dnd (`pnpm add @fragiola/dockable-react`, or `@fragiola/dockable-vue` in a Vue app).
 
 ## A tabset as a drop target
 
-`Dockable.TabSet` forwards its props and ref, as every Fragiola primitive does, so a `Droppable`
-wraps it directly. Both libraries' attributes sit on the one element (`data-layout-path` and
+`Dockable.TabSet` forwards its props and ref (in Vue, its attributes and template ref), as every
+Fragiola primitive does, so a `Droppable` wraps it directly. Both libraries' attributes sit on the one element (`data-layout-path` and
 `data-dnd-*`), without colliding. The drop changes the layout through Dockable's own command, so
 it goes through Dockable's rules like any other change:
+
+<Framework name="react">
 
 ```tsx title="layout.tsx"
 import { Droppable } from "@fragiola/dnd-react/droppable";
@@ -39,6 +41,42 @@ function TabSet({ node }: { node: TabsetNode<NoteTypes> }) {
     );
 }
 ```
+
+</Framework>
+
+<Framework name="vue">
+
+```vue title="layout-node.vue"
+<script setup lang="ts">
+import { Droppable } from "@fragiola/dnd-vue/droppable";
+import type { TabsetNode } from "@fragiola/dockable-vue";
+import { Dockable, model, type NoteTypes } from "./dockable";
+
+defineProps<{ node: TabsetNode<NoteTypes> }>();
+</script>
+
+<template>
+    <Droppable
+        :id="node.id"
+        :accepts="['card']"
+        @drop="
+            (event) =>
+                model.run('tab.add', {
+                    component: 'note',
+                    label: String(event.operation.source.data),
+                    data: { text: '…' },
+                    to: node.id,
+                })
+        "
+    >
+        <Dockable.TabSet :node="node" class="tabset data-dnd-over:outline">
+            <!-- the strip and the content, as usual -->
+        </Dockable.TabSet>
+    </Droppable>
+</template>
+```
+
+</Framework>
 
 ## A rule across both libraries
 

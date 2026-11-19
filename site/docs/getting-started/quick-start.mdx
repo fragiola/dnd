@@ -6,7 +6,10 @@ description: Make a card draggable and a box droppable, in unrelated parts of th
 ## A draggable and a droppable
 
 Wrap the element you already render. `Draggable` and `Droppable` render nothing of their own: they
-add their behaviour, attributes and ref to the one element they wrap.
+add their behaviour, attributes and ref to the one element they wrap (in Vue, their default slot's
+single child).
+
+<Framework name="react">
 
 ```tsx title="hello.tsx"
 import { Draggable } from "@fragiola/dnd-react/draggable";
@@ -37,6 +40,43 @@ export function Hello() {
 }
 ```
 
+</Framework>
+
+<Framework name="vue">
+
+```vue title="hello.vue"
+<script setup lang="ts">
+import { Draggable } from "@fragiola/dnd-vue/draggable";
+import { Droppable } from "@fragiola/dnd-vue/droppable";
+import { ref } from "vue";
+
+const inBox = ref(false);
+</script>
+
+<template>
+    <Tray>
+        <Draggable v-if="!inBox" id="card" type="card">
+            <article aria-label="Card" class="card">Drag me</article>
+        </Draggable>
+    </Tray>
+    <Box>
+        <Droppable id="box" :accepts="['card']" @drop="inBox = true">
+            <section aria-label="Box" class="box">
+                <Draggable v-if="inBox" id="card" type="card">
+                    <article aria-label="Card" class="card">Drag me</article>
+                </Draggable>
+                <template v-else>Drop here</template>
+            </section>
+        </Droppable>
+    </Box>
+</template>
+```
+
+Callbacks are props written as listeners (`@drop`, `@drag-start`), and the default slot can read
+the part's state: `<Draggable id="card" v-slot="{ state }">`.
+
+</Framework>
+
 There is no provider: the tray and the box can be any components, anywhere. The live version:
 
 <Example id="hello-dnd" />
@@ -45,8 +85,10 @@ There is no provider: the tray and the box can be any components, anywhere. The 
 
 The drop says what was dropped where (`event.operation.source.id`, `event.operation.target.id`);
 moving the data is the app's. While the card follows the pointer, the core moves it with the CSS
-`translate` property, once per animation frame, without rendering React. After your `onDrop` and
+`translate` property, once per animation frame, without rendering a component. After your `onDrop` and
 `onDragEnd` run, it clears `translate`, so the card goes straight to where your state put it.
+
+<Framework name="react">
 
 ```tsx title="board.tsx"
 <Droppable
@@ -56,6 +98,21 @@ moving the data is the app's. While the card follows the pointer, the core moves
     <section aria-label={column.title}>{/* … */}</section>
 </Droppable>
 ```
+
+</Framework>
+
+<Framework name="vue">
+
+```vue title="board.vue"
+<Droppable
+    :id="column.id"
+    @drop="(event) => (board = moveTask(board, String(event.operation.source.id), column.id))"
+>
+    <section :aria-label="column.title"><!-- … --></section>
+</Droppable>
+```
+
+</Framework>
 
 ## Style the drag
 

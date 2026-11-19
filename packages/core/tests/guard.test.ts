@@ -4,7 +4,7 @@ import { dirname, join, relative, resolve, sep } from "node:path";
 import { describe, expect, it } from "vitest";
 
 // The architecture rules a code review would miss (AGENTS.md, D2, D3 and D5): the core has no
-// dependencies, never imports React, never touches the browser globals, exports no `any`, a
+// dependencies, never imports a framework (React, Vue), never touches the browser globals, exports no `any`, a
 // capability never imports another capability, and every file derived from a reference project
 // says so.
 
@@ -33,8 +33,11 @@ function codeOnly(source: string): string {
 const GLOBAL_DOM =
     /(?<![.\w$])(document|window|requestAnimationFrame|cancelAnimationFrame|getComputedStyle|navigator|localStorage|sessionStorage|ResizeObserver|crypto)\b(?!\s*:)/;
 
-const IMPORT_REACT =
-    /(?:from\s+|import\s+|import\s*\(\s*|require\s*\(\s*)["'](?:react|react-dom)(?:\/[^"']*)?["']/;
+const IMPORT_FRAMEWORK =
+    /(?:from\s+|import\s+|import\s*\(\s*|require\s*\(\s*)["'](?:react|react-dom|vue|@vue\/[^"'/]+)(?:\/[^"']*)?["']/;
+
+/** The framework adapters: each mirrors the core's entries and builds on its adapter kit. */
+const ADAPTERS = ["react", "vue"] as const;
 
 /**
  * The capabilities (D3): each is its own entry and its own folder, `src/<capability>/`, in both
@@ -73,7 +76,7 @@ function capabilityOf(file: string, pkgSrc: string): string | undefined {
 /**
  * The capability a specifier reaches, from a file of a package whose sources are `pkgSrc`: a
  * relative path into `src/<capability>/`, or a package subpath (`@fragiola/dnd/<capability>`,
- * `@fragiola/dnd-react/<capability>`).
+ * `@fragiola/dnd-react/<capability>`, `@fragiola/dnd-vue/<capability>`).
  */
 function capabilityImported(
     specifier: string,
@@ -85,7 +88,9 @@ function capabilityImported(
         if (!target.startsWith(pkgSrc + sep)) return undefined;
         return capabilityOf(target, pkgSrc);
     }
-    const subpath = /^@fragiola\/dnd(?:-react)?\/([^/]+)/.exec(specifier)?.[1];
+    const subpath = /^@fragiola\/dnd(?:-react|-vue)?\/([^/]+)/.exec(
+        specifier,
+    )?.[1];
     return CAPABILITIES.find((capability) => capability === subpath);
 }
 
@@ -168,9 +173,9 @@ describe("core package guard", () => {
         expect(pkg.peerDependencies ?? {}).toEqual({});
     });
 
-    it("never imports react or react-dom", () => {
+    it("never imports a framework: react, react-dom, vue", () => {
         const offenders = listFiles(src).filter((file) =>
-            IMPORT_REACT.test(readFileSync(file, "utf8")),
+            IMPORT_FRAMEWORK.test(readFileSync(file, "utf8")),
         );
         expect(offenders).toEqual([]);
     });
@@ -193,7 +198,7 @@ describe("core package guard", () => {
     });
 
     it("never lets a capability import another, nor the shared core import a capability (D3)", () => {
-        for (const pkg of ["core", "react"]) {
+        for (const pkg of ["core", ...ADAPTERS]) {
             expect(
                 capabilityCrossings(join(packages, pkg, "src")),
                 pkg,
@@ -201,13 +206,10 @@ describe("core package guard", () => {
         }
     });
 
-    it("has an entry per capability folder, in both packages and both export maps (D3)", () => {
+    it("has an entry per capability folder, in every package and both export maps (D3)", () => {
         // the core also has its adapter-only entry (`src/adapter.ts`), which no adapter re-exports
-        const extra: Record<string, readonly string[]> = {
-            core: ["adapter"],
-            react: [],
-        };
-        for (const pkg of ["core", "react"]) {
+        const extra: Record<string, readonly string[]> = { core: ["adapter"] };
+        for (const pkg of ["core", ...ADAPTERS]) {
             const manifest = JSON.parse(
                 readFileSync(join(packages, pkg, "package.json"), "utf8"),
             ) as {
@@ -271,7 +273,7 @@ describe("core package guard", () => {
                 expect(rootLicence).toContain(line);
             }
         }
-        for (const pkg of ["core", "react"]) {
+        for (const pkg of ["core", ...ADAPTERS]) {
             expect(readFileSync(join(packages, pkg, "LICENSE"), "utf8")).toBe(
                 rootLicence,
             );
@@ -297,14 +299,16 @@ describe("core package guard", () => {
         expect(Object.keys(space.adapter)).toEqual(["register"]);
     });
 
-    it("keeps the adapter decisions in the core: the React adapter re-implements none, nor re-exports them", () => {
+    it("keeps the adapter decisions in the core: no adapter re-implements one, nor re-exports them", () => {
         // the handle link, the state slot, the option-change rule and the overlay's following
         // live in `@fragiola/dnd/adapter`; an adapter only renders and wires (main had them in
         // `packages/react/src/utils/handles.ts` and `useCoreState.ts`)
         const DECISIONS =
             /function (createSlot|shallowEqual|optionsChanged|same|addOwner|addHandle|handleIn)\b|\.closest\(/;
-        const reactSrc = join(packages, "react", "src");
-        const copies = listFiles(reactSrc).flatMap((file) => {
+        const adapterSources = ADAPTERS.flatMap((pkg) =>
+            listFiles(join(packages, pkg, "src")),
+        );
+        const copies = adapterSources.flatMap((file) => {
             const source = readFileSync(file, "utf8");
             const match =
                 DECISIONS.exec(codeOnly(source)) ??
@@ -312,7 +316,7 @@ describe("core package guard", () => {
             return match ? [`${relative(packages, file)}: ${match[0]}`] : [];
         });
         expect(copies).toEqual([]);
-        const reexported = listFiles(reactSrc).filter((file) =>
+        const reexported = adapterSources.filter((file) =>
             /export\s+\*\s+from\s+["']@fragiola\/dnd\/adapter["']/.test(
                 readFileSync(file, "utf8"),
             ),
@@ -321,7 +325,7 @@ describe("core package guard", () => {
     });
 
     it("ships no CSS: styling is 100% the app's (D7)", () => {
-        const css = ["core", "react"].flatMap((pkg) =>
+        const css = ["core", ...ADAPTERS].flatMap((pkg) =>
             listFiles(join(packages, pkg, "src")).filter((file) =>
                 /\.(css|scss|less)$/.test(file),
             ),
@@ -345,12 +349,14 @@ describe("core package guard", () => {
         expect(found("function f(window: Window) {}")).toBe(false);
     });
 
-    it("detects a react import and an exported any", () => {
-        expect(IMPORT_REACT.test('import type * as React from "react";')).toBe(
-            true,
-        );
-        expect(IMPORT_REACT.test('import "react-dom/client";')).toBe(true);
-        expect(IMPORT_REACT.test('import { x } from "./reactive";')).toBe(
+    it("detects a framework import and an exported any", () => {
+        expect(
+            IMPORT_FRAMEWORK.test('import type * as React from "react";'),
+        ).toBe(true);
+        expect(IMPORT_FRAMEWORK.test('import "react-dom/client";')).toBe(true);
+        expect(IMPORT_FRAMEWORK.test('import { h } from "vue";')).toBe(true);
+        expect(IMPORT_FRAMEWORK.test('import "@vue/runtime-dom";')).toBe(true);
+        expect(IMPORT_FRAMEWORK.test('import { x } from "./reactive";')).toBe(
             false,
         );
         expect(

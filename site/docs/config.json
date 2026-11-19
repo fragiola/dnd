@@ -139,6 +139,17 @@
             ]
         },
         {
+            "label": "API (@fragiola/dnd-vue)",
+            "collapsible": true,
+            "defaultOpen": true,
+            "pages": [
+                {
+                    "label": "Components and composables",
+                    "path": "api/vue"
+                }
+            ]
+        },
+        {
             "label": "More",
             "pages": [
                 {

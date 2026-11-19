@@ -68,6 +68,31 @@ merged with the wrapper's, or a function receiving the props to spread and the s
 
 <Example id="unstyled" />
 
+## In Vue
+
+The Vue components follow the same contract with Vue's tools. A component renders its **single
+default-slot child** cloned, with its attributes, listeners, ARIA, structural style and template
+ref merged in; its default slot is scoped with the part's state, the Vue form of a function of the
+state; and `as` replaces `render` when there is no child to wrap:
+
+```vue title="wrapped.vue"
+<Droppable id="slot-1" v-slot="{ state }">
+    <Draggable id="card-1">
+        <li :class="{ over: state.over }">Card</li>
+    </Draggable>
+</Droppable>
+<!-- <li data-dnd-part="draggable droppable" data-dnd-id="card-1" …> -->
+
+<Droppable id="basket" as="section" aria-label="Basket" v-slot="{ state }">
+    {{ state.over ? "Release to drop" : "Basket" }}
+</Droppable>
+```
+
+A component child must render one root element that takes its attributes and template ref, as
+every Fragiola primitive does. The development checks are the same: no child, several children, a
+fragment (a `v-for`) or text throw, and a child that never receives the element or its attributes
+is reported after mount. See [the Vue API](/docs/api/vue).
+
 ## Two deliberate exceptions to the Fragiola rules
 
 - **A wrapper that clones its child, not "`render`, never `asChild`".** Fragiola primitives render
