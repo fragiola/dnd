@@ -58,12 +58,42 @@ at all: no drag library, and no HTML5 drag and drop.
 
 </Framework>
 
+<Framework name="angular">
+
+## Install the package
+
+```sh title="Terminal"
+pnpm add @fragiola/dnd-angular
+```
+
+This one package is all an Angular app installs. It depends on the framework-free core,
+`@fragiola/dnd`, at the exact same version and re-exports it entry by entry, so every import comes
+from `@fragiola/dnd-angular` or one of its capability entries:
+
+```ts title="imports.ts"
+import { DndDragOverlay, autoScroll, injectDragMonitor } from "@fragiola/dnd-angular";
+import { DndDragHandle, DndDraggable } from "@fragiola/dnd-angular/draggable";
+import { DndDroppable } from "@fragiola/dnd-angular/droppable";
+```
+
+The directives are standalone: add them to a component's `imports`. See
+[capability entries](/docs/concepts/capability-entries) for what each entry holds, and
+[the Angular API](/docs/api/angular) for the directives and injection functions.
+
+## Peer dependencies
+
+The Angular package needs Angular 22 (`@angular/core`, `^22`). It is built for zoneless apps
+(Angular's default); with zone.js, the core's listeners run outside Angular's zone. It ships in the Angular Package Format, ESM only. The core has no
+runtime dependency at all: no drag library, and no HTML5 drag and drop.
+
+</Framework>
+
 ## Nothing else to set up
 
 - **No provider.** There is no context to put at the root of the app: draggables and droppables
   find each other through a drag space per document. See
   [the drag space](/docs/concepts/no-provider-drag-space).
-- **No stylesheet.** The wrappers (components, in Vue) set only the inline style a drag needs (a `translate` while the
+- **No stylesheet.** The wrappers (components in Vue, directives in Angular) set only the inline style a drag needs (a `translate` while the
   element follows the pointer, `touch-action: none` on a handle). Everything else is yours, read
   from the [state attributes](/docs/concepts/state-attributes).
 - **No text.** Accessible names and announcements are the app's. See

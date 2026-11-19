@@ -78,6 +78,41 @@ defineProps<{ node: TabsetNode<NoteTypes> }>();
 
 </Framework>
 
+<Framework name="angular">
+
+```ts title="tabset.ts"
+import { Component, input } from "@angular/core";
+import { DndDroppable } from "@fragiola/dnd-angular/droppable";
+import { DOCKABLE, injectDockable, type TabsetNode } from "@fragiola/dockable-angular";
+
+// both directives on the one element: Dockable's data-* and dnd's sit side by side
+@Component({
+    selector: "app-tabset",
+    imports: [DOCKABLE, DndDroppable],
+    template: `
+        <div
+            [dockableTabSet]="node()"
+            [dndDroppable]="node().id"
+            [accepts]="['card']"
+            (drop)="add($event.operation.source.data)"
+            class="tabset data-dnd-over:outline"
+        >
+            <!-- the strip and the content, as usual -->
+        </div>
+    `,
+})
+export class TabSet {
+    readonly node = input.required<TabsetNode<NoteTypes>>();
+    private readonly dockable = injectDockable<NoteTypes>();
+
+    add(card: unknown) {
+        this.dockable.model().run("tab.add", newTab(String(card), this.node().id));
+    }
+}
+```
+
+</Framework>
+
 ## A rule across both libraries
 
 Dockable's rules live in Dockable: here a Dockable middleware refuses `tab.add` into a tabset

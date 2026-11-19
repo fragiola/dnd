@@ -1,6 +1,7 @@
 // From Grid Layout (fragiola/grid-layout, scripts/size-report.ts), same author and licence.
 //
-// Reports the packages' bundle sizes (D13): every `packages/*/dist/*.js`, raw, gzip and,
+// Reports the packages' bundle sizes (D13): every `packages/*/dist/*.js` (and the Angular
+// package's `dist/fesm2022/*.mjs`, ng-packagr's), raw, gzip and,
 // when the build's own minifier is reachable (rolldown, under tsdown), minified + gzip; and the
 // chunks each file imports, so an entry point that pulls a shared chunk shows it. A report, never a
 // gate: it prints a markdown table (to `$GITHUB_STEP_SUMMARY` too, in CI) and always exits 0. Run
@@ -51,6 +52,7 @@ interface Rolldown {
             name: string;
             resolveId(id: string): string | undefined;
             load(id: string): string | undefined;
+            transform?(code: string, id: string): Promise<string | undefined>;
         }[];
     }): Promise<{
         generate(options: { format: "esm"; minify: boolean }): Promise<{
@@ -72,21 +74,116 @@ async function loadRolldown(): Promise<Rolldown | undefined> {
     }
 }
 
+/** An Angular app's production build of a library file: the linker and its optimizations. */
+type Transform = (code: string, id: string) => Promise<string | undefined>;
+
+/**
+ * Angular's own JavaScript transformer, as an app's production build runs it on a library (the
+ * Angular CLI and the Analog Vite plugin alike: the linker, and the optimizations that make an
+ * unused directive class tree-shakable); `undefined` when it is not installed.
+ */
+async function loadAngularTransform(): Promise<
+    { transform: Transform; close(): Promise<void> } | undefined
+> {
+    try {
+        const fromPackage = createRequire(
+            join(root, "packages", "angular", "package.json"),
+        );
+        const { JavaScriptTransformer } = (await import(
+            fromPackage.resolve("@angular/build/private")
+        )) as {
+            JavaScriptTransformer: new (
+                options: {
+                    sourcemap: boolean;
+                    advancedOptimizations: boolean;
+                    jit: boolean;
+                },
+                cache: undefined,
+            ) => {
+                transformData(
+                    id: string,
+                    code: string,
+                    options: { sideEffects: () => Promise<boolean> },
+                ): Promise<Uint8Array>;
+                close(): Promise<void>;
+            };
+        };
+        const transformer = new JavaScriptTransformer(
+            { sourcemap: false, advancedOptimizations: true, jit: false },
+            undefined,
+        );
+        const dist = join(root, "packages", "angular", "dist");
+        return {
+            async transform(code, id) {
+                if (!id.startsWith(dist)) return undefined;
+                const output = await transformer.transformData(id, code, {
+                    sideEffects: async () => false,
+                });
+                return Buffer.from(output).toString("utf8");
+            },
+            close: () => transformer.close(),
+        };
+    } catch {
+        return undefined;
+    }
+}
+
 /** An adapter package whose entries the report sizes, and the framework it leaves out. */
-const ADAPTERS = [
+interface Adapter {
+    readonly pkg: string;
+    readonly label: string;
+    readonly name: string;
+    readonly external: RegExp;
+    /** an entry's built file, in its `dist` (`index` is the main one) */
+    readonly file: (entry: string) => string;
+    /** the part an app imports alone from each capability entry */
+    readonly parts: Readonly<Record<Capability, string>>;
+    /** what an app's build does to the package's files first (Angular's linker) */
+    readonly transform?: Transform | undefined;
+}
+
+type Capability = "draggable" | "droppable" | "sortable" | "swappable";
+
+const PARTS = {
+    draggable: "Draggable",
+    droppable: "Droppable",
+    sortable: "Sortable",
+    swappable: "Swappable",
+} as const;
+
+const ADAPTERS: readonly Omit<Adapter, "transform">[] = [
     {
         pkg: "react",
         label: "React",
         name: "@fragiola/dnd-react",
         external: /^react(?:-dom)?(?:\/|$)/,
+        file: (entry) => `${entry}.js`,
+        parts: PARTS,
     },
     {
         pkg: "vue",
         label: "Vue",
         name: "@fragiola/dnd-vue",
         external: /^(?:vue|@vue\/[^/]+)(?:\/|$)/,
+        file: (entry) => `${entry}.js`,
+        parts: PARTS,
     },
-] as const;
+    {
+        pkg: "angular",
+        label: "Angular",
+        name: "@fragiola/dnd-angular",
+        external: /^@angular\//,
+        // ng-packagr's flat modules: one file per entry, each importing the main one by name
+        file: (entry) =>
+            `fesm2022/fragiola-dnd-angular${entry === "index" ? "" : `-${entry}`}.mjs`,
+        parts: {
+            draggable: "DndDraggable",
+            droppable: "DndDroppable",
+            sortable: "DndSortable",
+            swappable: "DndSwappable",
+        },
+    },
+];
 
 /**
  * What an app ships for an adapter's entries it imports, with the core they pull (D13): each set
@@ -95,19 +192,16 @@ const ADAPTERS = [
  */
 async function appSizes(
     rolldown: Rolldown,
-    adapter: (typeof ADAPTERS)[number],
+    adapter: Adapter,
 ): Promise<string[]> {
     const dist = join(root, "packages", adapter.pkg, "dist");
     if (!existsSync(dist)) return [];
+    const path = (entry: string) =>
+        JSON.stringify(join(dist, adapter.file(entry)));
     const size = async (entries: readonly string[], only?: string) => {
         const code = only
-            ? `export { ${only} } from ${JSON.stringify(join(dist, `${entries[0]}.js`))};`
-            : entries
-                  .map(
-                      (name) =>
-                          `export * from ${JSON.stringify(join(dist, `${name}.js`))};`,
-                  )
-                  .join("\n");
+            ? `export { ${only} } from ${path(entries[0] ?? "index")};`
+            : entries.map((name) => `export * from ${path(name)};`).join("\n");
         const build = await rolldown.rolldown({
             input: "app",
             cwd: join(root, "packages", adapter.pkg),
@@ -116,13 +210,23 @@ async function appSizes(
             transform: {
                 define: {
                     "process.env.NODE_ENV": JSON.stringify("production"),
+                    ngDevMode: "false",
                 },
             },
             plugins: [
                 {
                     name: "app",
-                    resolveId: (id) => (id === "app" ? id : undefined),
+                    resolveId: (id) => {
+                        if (id === "app") return id;
+                        // an entry importing the main one by name (ng-packagr's)
+                        if (id === adapter.name)
+                            return join(dist, adapter.file("index"));
+                        return undefined;
+                    },
                     load: (id) => (id === "app" ? code : undefined),
+                    ...(adapter.transform
+                        ? { transform: adapter.transform }
+                        : {}),
                 },
             ],
         });
@@ -170,12 +274,7 @@ async function appSizes(
     ]);
     rows.push(`| all five | ${kb(all)} | ${kb(all - shared)} | |`);
     // what an app that imports one part ships: the rest of the entries is tree-shaken
-    for (const [name, part] of [
-        ["draggable", "Draggable"],
-        ["droppable", "Droppable"],
-        ["sortable", "Sortable"],
-        ["swappable", "Swappable"],
-    ] as const)
+    for (const [name, part] of Object.entries(adapter.parts))
         rows.push(`| only \`${part}\` | ${kb(await size([name], part))} | | |`);
     return rows;
 }
@@ -192,9 +291,15 @@ async function main() {
             lines.push(`| packages/${pkg} | not built | | | |`);
             continue;
         }
-        for (const name of readdirSync(dist)
-            .filter((file) => file.endsWith(".js"))
-            .sort()) {
+        const files = [
+            ...readdirSync(dist).filter((file) => file.endsWith(".js")),
+            ...(existsSync(join(dist, "fesm2022"))
+                ? readdirSync(join(dist, "fesm2022"))
+                      .filter((file) => file.endsWith(".mjs"))
+                      .map((file) => `fesm2022/${file}`)
+                : []),
+        ].sort();
+        for (const name of files) {
             const source = readFileSync(join(dist, name), "utf8");
             let minified: string | undefined;
             try {
@@ -208,13 +313,21 @@ async function main() {
         }
     }
     const rolldown = await loadRolldown();
+    const angular = await loadAngularTransform();
     const app: string[] = [];
     for (const adapter of ADAPTERS) {
+        const transform =
+            adapter.pkg === "angular" ? angular?.transform : undefined;
+        // Angular's files tree-shake only through its own transformer
+        if (adapter.pkg === "angular" && !transform) continue;
         const rows = rolldown
-            ? await appSizes(rolldown, adapter).catch(() => [])
+            ? await appSizes(rolldown, { ...adapter, transform }).catch(
+                  () => [],
+              )
             : [];
         if (rows.length) app.push(...rows, "");
     }
+    await angular?.close();
     const report = [
         "### Bundle sizes",
         "",
