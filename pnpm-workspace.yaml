@@ -9,4 +9,7 @@ packages:
 # key; `onlyBuiltDependencies` was its predecessor.
 allowBuilds:
   esbuild: true
+minimumReleaseAgeExclude:
+  - '@fragiola/dockable-vue@0.3.0'
+  - '@fragiola/dockable@0.3.0'
 verifyDepsBeforeRun: false
