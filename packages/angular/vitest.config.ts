@@ -1,5 +1,10 @@
 import angular from "@analogjs/vite-plugin-angular";
-import { defaultClientConditions, type Plugin, transformWithOxc } from "vite";
+import {
+    defaultClientConditions,
+    defaultServerConditions,
+    type Plugin,
+    transformWithOxc,
+} from "vite";
 import { defineProject } from "vitest/config";
 import { withSourceCondition } from "../../scripts/source-condition.ts";
 
@@ -28,8 +33,12 @@ export default defineProject({
         tsxHelpers(),
     ],
     // the core and this package's own entries from their sources (the source export condition),
-    // not their dist
+    // not their dist, in either environment: client (jsdom) and server (ssr.test.ts opts into
+    // node), so the tests pass before any build
     resolve: { conditions: withSourceCondition(defaultClientConditions) },
+    ssr: {
+        resolve: { conditions: withSourceCondition(defaultServerConditions) },
+    },
     test: {
         name: "angular",
         environment: "jsdom",
