@@ -19,8 +19,9 @@
 #            react, vue, angular), each running the shared specs of examples/shared/e2e against
 #            its own embed (Chromium). An examples embed builds against the packages' dist, so
 #            its job builds the packages, and installs the Playwright of its own app.
-#   E2E (WebKit mobile)  the playground's mobile specs in WebKit on an iPhone's viewport: a
-#            report, never a gate (continue-on-error).
+#            No WebKit job (Dockable has one): the playground's mobile specs drive touch through
+#            Chromium's DevTools protocol, which WebKit does not have, so every one of them fails
+#            there (`PLAYWRIGHT_WEBKIT=1` still adds the project locally).
 #   Site export  `pnpm site:export --base /dnd`, self-validated against the www contract.
 #
 # Tests run only on pull requests (and on a manual run): with one coordinator merging one PR at a
@@ -203,42 +204,6 @@ jobs:
         with:
           name: playwright-report-examples-${{ matrix.framework }}
           path: examples/${{ matrix.framework }}/playwright-report/
-          retention-days: 14
-
-  e2e-webkit:
-    name: E2E (WebKit mobile)
-    if: github.event_name != 'push'
-    runs-on: ubuntu-latest
-    # a report, never a gate: WebKit in CI can be slow or flaky
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: pnpm
-
-      - run: pnpm install --frozen-lockfile
-
-      - name: Install Playwright WebKit
-        working-directory: apps/playground
-        run: pnpm exec playwright install --with-deps webkit
-
-      - name: Run the mobile specs in WebKit
-        working-directory: apps/playground
-        env:
-          PLAYWRIGHT_WEBKIT: "1"
-        run: pnpm exec playwright test --project webkit-mobile
-
-      - name: Upload Playwright report
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report-webkit-mobile
-          path: apps/playground/playwright-report/
           retention-days: 14
 
   site-export:

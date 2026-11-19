@@ -3,7 +3,8 @@ import { defineConfig, devices } from "@playwright/test";
 const CI = Boolean(process.env.CI);
 // the specs written for a phone: real touch input, a phone's viewport
 const MOBILE = /(\.touch|mobile)\.spec\.ts$/;
-// WebKit on an iPhone's viewport: its own CI job, never blocking (`PLAYWRIGHT_WEBKIT=1`)
+// WebKit on an iPhone's viewport, opt-in (`PLAYWRIGHT_WEBKIT=1`). Not in CI: the mobile specs drive
+// touch through Chromium's DevTools protocol (`touchPath`), which WebKit does not have
 const WEBKIT = process.env.PLAYWRIGHT_WEBKIT === "1";
 // the playground's port (vite.config.ts reads the same variable)
 const PORT = Number(process.env.PLAYGROUND_PORT ?? 5173);
