@@ -115,6 +115,21 @@ describe("the wrappers render no element of their own", () => {
         );
     });
 
+    it("wraps the one element of a slot passed on (`<Draggable><slot /></Draggable>`)", () => {
+        const Card = defineComponent({
+            setup:
+                (_, { slots }) =>
+                () =>
+                    h(Draggable, { id: "a" }, () => [
+                        h(Fragment, slots.default?.() ?? []),
+                    ]),
+        });
+        render(
+            page(() => h(Card, null, () => h("li", { "data-testid": "a" }))),
+        );
+        expect(byTestId("a").dataset.dndPart).toBe("draggable");
+    });
+
     it("skips a `v-if` comment beside the child", () => {
         const { container } = render(
             page(() =>
@@ -198,6 +213,26 @@ describe("the merge", () => {
             ),
         );
         expect(seen[0]).toBe("0");
+    });
+
+    it("patches a child's CSS string style key by key, never wiping the core's translate", async () => {
+        const opacity = ref(1);
+        render(
+            page(() =>
+                h(Draggable, { id: "a" }, () =>
+                    h("div", {
+                        "data-testid": "a",
+                        style: `opacity: ${opacity.value}`,
+                    }),
+                ),
+            ),
+        );
+        const element = byTestId("a");
+        element.style.translate = "10px 20px";
+        opacity.value = 0.5;
+        await settle();
+        expect(element.style.opacity).toBe("0.5");
+        expect(element.style.translate).toBe("10px 20px");
     });
 
     it("lets the child's own plain props win over the wrapper's", () => {
@@ -334,7 +369,7 @@ describe("development errors", () => {
         const { container } = render(
             page(() => [
                 h(Draggable, { id: "a" }, () => "text"),
-                h(Droppable, { id: "z" }, () => h(Fragment, [h("b")])),
+                h(Droppable, { id: "z" }, () => h(Fragment, [h("b"), h("b")])),
                 h(Draggable, { id: "b" }, () => h(Swallows)),
                 h(DragHandle, null, () => h("span")),
             ]),
@@ -342,7 +377,7 @@ describe("development errors", () => {
         await nextTick();
         await nextTick();
         expect(container.innerHTML).toBe(
-            'text<b></b><div tabindex="0"></div><span data-dnd-part="handle" data-dnd-handle=""></span>',
+            'text<b></b><b></b><div tabindex="0"></div><span data-dnd-part="handle" data-dnd-handle=""></span>',
         );
         expect(error).not.toHaveBeenCalled();
     });

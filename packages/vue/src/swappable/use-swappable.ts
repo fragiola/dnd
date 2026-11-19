@@ -54,7 +54,8 @@ const BINDING: PartBinding<UseSwappableOptions, SwappableState> = {
 export function useSwappable(
     options: MaybeRefOrGetter<UseSwappableOptions>,
 ): UseSwappableResult {
-    const read = () => toValue(options);
+    // a copy, so a reactive object (or a ref's object changed in place) is tracked key by key
+    const read = () => ({ ...toValue(options) });
     const { state, ref } = usePart(BINDING, read);
     return {
         state,

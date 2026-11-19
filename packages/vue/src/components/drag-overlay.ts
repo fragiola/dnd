@@ -21,7 +21,7 @@ import {
     type VNode,
     watchEffect,
 } from "vue";
-import { useDragSpace } from "../composables/use-drag-space";
+import { useDragSpace, useMounted } from "../composables/use-drag-space";
 import { elementRef } from "../utils/element-ref";
 import { type AsProp, renderWrapper, type WrapperProps } from "../utils/wrap";
 
@@ -86,10 +86,13 @@ export const DragOverlay: DefineSetupFnComponent<
         let element: HTMLElement | null = null;
         // the latest operation: the pointer's moves are rendered on the next show only
         let latest: DragOperation | undefined;
+        const mounted = useMounted();
         watchEffect(
             (onCleanup) => {
                 const current = space.value;
-                if (!current) return;
+                // from the mount on, even with an explicit space: never on the server, and a
+                // hydrated overlay first renders what the server did
+                if (!current || !mounted.value) return;
                 onCleanup(
                     followOverlay(
                         current,

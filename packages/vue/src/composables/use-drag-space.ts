@@ -4,6 +4,7 @@ import { type DragSpace, getDragSpace } from "@fragiola/dnd";
 import {
     type ComputedRef,
     computed,
+    getCurrentInstance,
     type MaybeRefOrGetter,
     onMounted,
     type Ref,
@@ -23,16 +24,28 @@ export interface UseDragSpaceOptions {
 }
 
 /**
+ * Whether the caller is mounted: a component once it mounts; a scope outside any component (a
+ * store, a test) at once, in a browser. Never on the server.
+ */
+export function useMounted(): Readonly<Ref<boolean>> {
+    const mounted = shallowRef(
+        !getCurrentInstance() && typeof document !== "undefined",
+    );
+    if (getCurrentInstance())
+        onMounted(() => {
+            mounted.value = true;
+        });
+    return mounted;
+}
+
+/**
  * The drag space: `options.space`, or a document's (the page's by default) once mounted;
  * `undefined` before that and on the server. Pass a getter or a ref for options that change.
  */
 export function useDragSpace(
     options: MaybeRefOrGetter<UseDragSpaceOptions> = {},
 ): ComputedRef<DragSpace | undefined> {
-    const mounted = shallowRef(false);
-    onMounted(() => {
-        mounted.value = true;
-    });
+    const mounted = useMounted();
     return computed(() => {
         const { space, document: doc, ref } = toValue(options);
         if (space) return space;

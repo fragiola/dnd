@@ -2,7 +2,7 @@
 // one scope, for announcements and app-level reactions. The only "global" API, and optional.
 import type { DragListener, DragSpace } from "@fragiola/dnd";
 import { type MaybeRefOrGetter, toValue, watchEffect } from "vue";
-import { useDragSpace } from "./use-drag-space";
+import { useDragSpace, useMounted } from "./use-drag-space";
 
 /** Options of {@link useDragMonitor}. */
 export interface UseDragMonitorOptions {
@@ -27,10 +27,12 @@ export function useDragMonitor(
         const { space: given, document: doc } = toValue(options);
         return { space: given, document: doc };
     });
+    const mounted = useMounted();
     watchEffect(
         (onCleanup) => {
             const current = space.value;
-            if (!current) return;
+            // from the mount on, even with an explicit space: never on the server
+            if (!current || !mounted.value) return;
             onCleanup(
                 current.subscribe(listener, { scope: toValue(options).scope }),
             );

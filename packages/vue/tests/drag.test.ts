@@ -18,6 +18,7 @@ import {
     countUpdates,
     flush,
     key,
+    place,
     placeAll,
     pointer,
     render,
@@ -380,6 +381,29 @@ describe("the composables' lifecycle", () => {
         expect(updates.sort()).toEqual(["card", "left", "right"]);
     });
 
+    it("follows a reactive options object changed in place", async () => {
+        const { reactive } = await import("vue");
+        const options = reactive({ id: "card", disabled: false });
+        const Card = defineComponent({
+            setup() {
+                const { props } = useDraggable(options);
+                return () =>
+                    h("div", { ...props.value, "data-testid": "card" });
+            },
+        });
+        render(Card);
+        options.disabled = true;
+        await settle();
+        expect(byTestId("card").dataset.dndDisabled).toBe("");
+        placeAll(BOXES);
+        const onDragStart = vi.fn();
+        getDragSpace(document).subscribe((event) => {
+            if (event.type === "drag-start") onDragStart();
+        });
+        await dragCard(60, 25);
+        expect(onDragStart).not.toHaveBeenCalled();
+    });
+
     it("ends with its effect scope: a composable outside a component", () => {
         const element = document.createElement("div");
         document.body.append(element);
@@ -389,6 +413,14 @@ describe("the composables' lifecycle", () => {
             props.value.ref(element);
         });
         expect(getDragSpace(document).get("draggable-ids")).toEqual(["loose"]);
+        // a monitor in a scope outside any component sees the drags at once
+        const seen: string[] = [];
+        scope.run(() => useDragMonitor((event) => seen.push(event.type)));
+        place(element, BOXES.card);
+        const press = pointer(element, 25, 25);
+        press.move(40, 25);
+        press.release(40, 25);
+        expect(seen).toContain("drag-start");
         scope.stop();
         expect(getDragSpace(document).get("draggable-ids")).toEqual([]);
     });

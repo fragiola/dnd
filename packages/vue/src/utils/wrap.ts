@@ -112,7 +112,32 @@ function styleObject(style: unknown): AnyProps {
 
 /** The slot's nodes that render something (a `v-if` left a comment). */
 function rendered(content: VNode[] | undefined): VNode[] {
-    return (content ?? []).filter((node) => node.type !== Comment);
+    const nodes = (content ?? []).filter((node) => node.type !== Comment);
+    // a slot passed on (`<Draggable><slot /></Draggable>`) is a fragment around its nodes: one
+    // node inside it is the child
+    const [only] = nodes;
+    if (
+        nodes.length === 1 &&
+        only?.type === Fragment &&
+        Array.isArray(only.children)
+    ) {
+        const inner = rendered(only.children as VNode[]);
+        if (inner.length === 1) return inner;
+    }
+    return nodes;
+}
+
+/**
+ * The style of the element: `sources` over each other as one object, the last winning (an
+ * undefined key included: it removes the ones before), so Vue patches it key by key and never
+ * rewrites `cssText` (which would wipe the `translate` the core writes).
+ */
+function mergedStyle(...sources: unknown[]): AnyProps | undefined {
+    const style: AnyProps = {};
+    for (const source of sources) Object.assign(style, styleObject(source));
+    for (const [key, value] of Object.entries(style))
+        if (value === undefined) delete style[key];
+    return Object.keys(style).length > 0 ? style : undefined;
 }
 
 /** Whether a node is one element or component, the only child a wrapper can wrap. */
@@ -162,18 +187,13 @@ export function renderWrapper<State>(options: WrapOptions<State>): VNodeChild {
     }
     for (const [key, value] of Object.entries(attributes))
         if (value === undefined) delete attributes[key];
-    // the structural keys win, an undefined one included (it removes the consumer's)
-    const style: AnyProps = {
-        ...styleObject(given),
-        ...(structural as AnyProps | undefined),
-    };
-    for (const [key, value] of Object.entries(style))
-        if (value === undefined) delete style[key];
     const extra: AnyProps = { ...attributes, ref };
-    if (Object.keys(style).length > 0) extra.style = style;
 
     const tag = options.as ?? options.fallback;
     if (tag !== undefined) {
+        // the structural keys win, an undefined one included (it removes the consumer's)
+        const style = mergedStyle(given, structural);
+        if (style) extra.style = style;
         if (typeof tag === "string") return h(tag, extra, content);
         return h(tag, extra, content ? { default: () => content } : undefined);
     }
@@ -183,6 +203,9 @@ export function renderWrapper<State>(options: WrapOptions<State>): VNodeChild {
     const [child] = nodes;
     if (nodes.length !== 1 || !wrappable(child)) return content;
     const childProps = (child.props ?? {}) as AnyProps;
+    // the component's style over the child's, the structural keys winning
+    const style = mergedStyle(childProps.style, given, structural);
+    if (style) extra.style = style;
     const clone = cloneVNode(child, extra, true);
     // the wrapper's template ref before the child's own (Vue calls them in order, and cloning
     // appends it), as React attaches it: the child's ref sees the element registered already

@@ -48,6 +48,26 @@ describe("server rendering", () => {
         expect(warn).not.toHaveBeenCalled();
     });
 
+    it("never follows a drag on the server, even with an explicit space", async () => {
+        const { createDragSpace } = await import("../src");
+        const space = createDragSpace({ document: {} as Document });
+        const listener = vi.fn();
+        const subscribe = vi.spyOn(space, "subscribe");
+        const Watcher = defineComponent({
+            setup() {
+                useDragMonitor(listener, { space });
+                return () => null;
+            },
+        });
+        expect(
+            await html(() => [
+                h(Watcher),
+                h(DragOverlay, { space }, () => "ghost"),
+            ]),
+        ).toBe("<!--[--><!----><!----><!--]-->");
+        expect(subscribe).not.toHaveBeenCalled();
+    });
+
     it("renders sortable and swappable items, their group and a handle, without a document", async () => {
         const error = vi.spyOn(console, "error");
         expect(
