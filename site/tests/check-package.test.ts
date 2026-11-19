@@ -9,8 +9,12 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import angularManifest from "../../packages/angular/package.json" with {
+    type: "json",
+};
 import {
     ADAPTERS,
+    buildOutputExports,
     corePinProblem,
     exportProblems,
     findTarballs,
@@ -117,6 +121,29 @@ describe("the packed package check", () => {
         expect(relativeTo(published, "out")).toEqual(published);
     });
 
+    it("expects the Angular package's packed exports to be what publish-manifest.ts writes", () => {
+        // dist/package.json: no source condition, `./dist/` stripped, no `dist/` in the tarball
+        const expected = buildOutputExports(angularManifest.exports, "dist");
+        expect(publishedExportsProblems(expected, expected)).toEqual([]);
+        expect(expected).toEqual(
+            relativeTo(withoutSource(angularManifest.exports), "dist"),
+        );
+        expect(Object.keys(expected as object)).toEqual([
+            ".",
+            "./draggable",
+            "./droppable",
+            "./sortable",
+            "./swappable",
+            "./package.json",
+        ]);
+        expect((expected as Record<string, unknown>)["./draggable"]).toEqual({
+            types: "./types/fragiola-dnd-angular-draggable.d.ts",
+            default: "./fesm2022/fragiola-dnd-angular-draggable.mjs",
+        });
+        expect(JSON.stringify(expected)).not.toContain("./dist/");
+        expect(JSON.stringify(expected)).not.toContain(SOURCE_CONDITION);
+    });
+
     it("lists the absolute imports of a module the dev server served", () => {
         expect(
             servedImports(
@@ -156,17 +183,27 @@ describe("the packed package check", () => {
 // Every package under packages/ but the core is an adapter, and each adapter is checked the same
 // way: its exact core pin and its own smoke app.
 describe("the adapters the package check covers", () => {
-    it("are every package of packages/ but the core, React first", () => {
+    it("are every package of packages/ but the core, React first, then Vue and Angular", () => {
         const dirs = readdirSync(join(import.meta.dirname, "../../packages"));
         expect(unlistedPackages(dirs)).toEqual([]);
         expect(ADAPTERS.map((adapter) => adapter.dir).sort()).toEqual(
             dirs.filter((dir) => dir !== "core").sort(),
         );
-        expect(ADAPTERS[0]?.dir).toBe("react");
+        expect(ADAPTERS.map((adapter) => adapter.dir)).toEqual([
+            "react",
+            "vue",
+            "angular",
+        ]);
+        // each smoke app takes its versions from its own framework's examples app
+        expect(ADAPTERS.map((adapter) => adapter.framework)).toEqual([
+            "react",
+            "vue",
+            "angular",
+        ]);
     });
 
     it("finds a package that is neither the core nor a listed adapter", () => {
-        const dirs = ["core", "react", "solid"];
+        const dirs = ["core", "react", "vue", "angular", "solid"];
         expect(unlistedPackages(dirs)).toEqual(["solid"]);
         expect(
             unlistedPackages(dirs, [
@@ -176,15 +213,20 @@ describe("the adapters the package check covers", () => {
         ).toEqual([]);
     });
 
-    it("require each adapter to pin the core at its exact version", () => {
+    it.each([
+        "@fragiola/dnd-react",
+        "@fragiola/dnd-vue",
+        "@fragiola/dnd-angular",
+    ])("require %s to pin the core at its exact version", (name) => {
         const adapter = (pin?: string) => ({
-            name: "@fragiola/dnd-react",
+            name,
             ...(pin ? { dependencies: { "@fragiola/dnd": pin } } : {}),
         });
         expect(corePinProblem(adapter("1.2.3"), "1.2.3")).toBeUndefined();
         expect(corePinProblem(adapter("^1.2.3"), "1.2.3")).toBe(
-            '@fragiola/dnd-react depends on the core at "^1.2.3", not at 1.2.3',
+            `${name} depends on the core at "^1.2.3", not at 1.2.3`,
         );
+        expect(corePinProblem(adapter("workspace:*"), "1.2.3")).toBeDefined();
         expect(corePinProblem(adapter(), "1.2.3")).toMatch(/"undefined"/);
     });
 });

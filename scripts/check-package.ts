@@ -1,19 +1,27 @@
-// From Dockable (fragiola/dockable, scripts/check-package.ts), same author and licence; DnD has one
-// adapter (React), so only the React smoke app.
+// From Dockable (fragiola/dockable, scripts/check-package.ts), same author and licence.
 // Fails when a package cannot be published as it is. Run by `pnpm check:package`, after the
 // packages built. Each package is packed with pnpm, which applies `publishConfig` as the publish
 // does (npm would not: the packages are only ever packed and published through pnpm), then:
 //
 // - its packed `exports` (from `publishConfig.exports`) are the repo's `exports` without the source
-//   condition, and use only the `types`, `import` and `default` conditions, with targets in `dist`;
+//   condition, and use only the `types`, `import` and `default` conditions, with targets in `dist`.
+//   A package published from its build output (`publishConfig.directory`: Angular's, which
+//   ng-packagr builds into `dist`, with the manifest `scripts/publish-manifest.ts` writes) is
+//   packed from that directory: its packed `exports` are `distExports` of the repo's (no source
+//   condition, `./dist/x` is `./x`), and every target is a file of the tarball;
 // - publint (strict) and attw (`esm-only` profile) pass on the tarball;
-// - every adapter (`ADAPTERS`: each package under packages/ but the core: React) depends on the
-//   core at its exact version;
+// - every adapter (`ADAPTERS`: each package under packages/ but the core: React, Vue, Angular)
+//   depends on the core at its exact version (pnpm replaces `workspace:*` when it packs);
 // - each adapter's smoke test: a scratch app outside the workspace installs that adapter's tarball
-//   (the core tarball comes as its dependency) and imports every entry from it, typechecks with
-//   the repo's TypeScript, builds, and its dev server serves the entry with every import resolved.
-//   A consumer's dev server adds the `development` condition, which once pointed the published
-//   `exports` at sources that are not in the tarball.
+//   (the core tarball comes as its dependency) and imports every entry from it, typechecks,
+//   builds, and its dev server serves the entry with every import resolved. For React, a Vite +
+//   React app on examples/react's TypeScript; for Vue, a Vite + Vue app with a single-file
+//   component, checked by vue-tsc on examples/vue's TypeScript 6.0 (vue-tsc does not run on
+//   TypeScript 7 yet); for Angular, a Vite app with @analogjs/vite-plugin-angular and a standalone
+//   component, checked by ngc (strict templates) on packages/angular's TypeScript 6.0 (the Angular
+//   compiler's). The adapters import the core's `./adapter` entry, so every smoke build resolves
+//   it from the core tarball. A consumer's dev server adds the `development` condition, which once
+//   pointed the published `exports` at sources that are not in the tarball.
 //
 // `--tarballs <dir>` checks the tarballs found in `dir` (at any depth) instead of packing: the
 // release workflow passes the directory `changeset pack` wrote, so what is checked is what is
@@ -31,6 +39,8 @@ import {
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import type { Framework } from "../examples/shared/src/framework.ts";
+import { distExports } from "../packages/angular/scripts/publish-manifest.ts";
 import { SOURCE_CONDITION } from "./source-condition.ts";
 
 const root = join(import.meta.dirname, "..");
@@ -206,7 +216,7 @@ function lint(name: string, tarball: string): string[] {
                       files.has(target),
                   ),
                   ...publishedExportsProblems(
-                      relativeTo(repo.exports, directory),
+                      buildOutputExports(repo.exports, directory),
                       manifest.exports,
                   ),
               ]
@@ -216,8 +226,21 @@ function lint(name: string, tarball: string): string[] {
     return problems;
 }
 
+/**
+ * The `exports` a package packed from its build output `directory` publishes: for `dist`, what
+ * `scripts/publish-manifest.ts` writes (`distExports`), else the repo's relative to `directory`.
+ */
+export function buildOutputExports(
+    exports: unknown,
+    directory: string,
+): unknown {
+    return directory.replace(/^\.\/|\/$/g, "") === "dist"
+        ? distExports(exports)
+        : relativeTo(withoutSource(exports), directory);
+}
+
 /** The versions a framework's examples app pins, so its smoke app installs nothing new. */
-function examplesVersion(framework: "react", name: string): string {
+function examplesVersion(framework: Framework, name: string): string {
     const manifest = JSON.parse(
         readFileSync(join(root, "examples", framework, "package.json"), "utf8"),
     ) as {
@@ -437,12 +460,345 @@ async function reactSmoke(
     await loadThroughDevServer(app, "/src/main.tsx");
 }
 
+// The Vue smoke app: a single-file component imports every entry of the Vue package (the core
+// included) and renders each wrapper, checked by vue-tsc; the entry mounts it.
+const VUE_SMOKE_MAIN = `import { createApp } from "vue";
+import App from "./App.vue";
+
+createApp(App).mount("#root");
+`;
+
+const VUE_SMOKE_APP = `<script setup lang="ts">
+import { DragOverlay, type DropEvent, useDragMonitor } from "@fragiola/dnd-vue";
+import { DragHandle, Draggable } from "@fragiola/dnd-vue/draggable";
+import { Droppable } from "@fragiola/dnd-vue/droppable";
+import { Sortable, type SortEndEvent } from "@fragiola/dnd-vue/sortable";
+import { type SwapEvent, Swappable } from "@fragiola/dnd-vue/swappable";
+import { ref } from "vue";
+
+const inBox = ref(false);
+useDragMonitor((event) => console.log(event.type));
+
+function drop(event: DropEvent) {
+    inBox.value = String(event.operation.source.id) === "card";
+}
+function sortEnd(event: SortEndEvent) {
+    console.log(event.from.index, event.to.index);
+}
+function swap(event: SwapEvent) {
+    console.log(event.type);
+}
+</script>
+
+<template>
+    <main>
+        <Draggable v-if="!inBox" id="card" type="task">
+            <div>
+                <DragHandle><button type="button">Move</button></DragHandle>
+                Drag me
+            </div>
+        </Draggable>
+        <Droppable id="box" :accepts="['task']" @drop="drop">
+            <div aria-label="Drop here">{{ inBox ? "In the box" : "" }}</div>
+        </Droppable>
+        <ul>
+            <Sortable id="one" :index="0" group="list" @sort-end="sortEnd">
+                <li>One</li>
+            </Sortable>
+        </ul>
+        <Swappable id="two" :index="0" group="board" @swap="swap">
+            <div>Two</div>
+        </Swappable>
+        <DragOverlay v-slot="{ operation }">
+            <div>{{ String(operation.source.id) }}</div>
+        </DragOverlay>
+    </main>
+</template>
+`;
+
+/**
+ * A scratch Vite + Vue app in `dir` that depends on the Vue tarball only (the core tarball comes
+ * as its dependency). It typechecks with vue-tsc on the TypeScript examples/vue pins (vue-tsc does
+ * not run on TypeScript 7 yet).
+ */
+function writeVueSmokeApp(dir: string, core: string, vue: string): void {
+    const version = (name: string) => examplesVersion("vue", name);
+    const manifest = {
+        name: "dnd-smoke",
+        private: true,
+        type: "module",
+        dependencies: {
+            "@fragiola/dnd-vue": `file:${vue}`,
+            vue: version("vue"),
+        },
+        devDependencies: {
+            "@vitejs/plugin-vue": version("@vitejs/plugin-vue"),
+            typescript: version("typescript"),
+            vite: version("vite"),
+            "vue-tsc": version("vue-tsc"),
+        },
+    };
+    writeFileSync(
+        join(dir, "package.json"),
+        `${JSON.stringify(manifest, null, 4)}\n`,
+    );
+    writeFileSync(
+        join(dir, "pnpm-workspace.yaml"),
+        `overrides:\n  "@fragiola/dnd": "file:${core}"\n`,
+    );
+    writeFileSync(
+        join(dir, "vite.config.js"),
+        `import vue from "@vitejs/plugin-vue";\nimport { defineConfig } from "vite";\n\nexport default defineConfig({ plugins: [vue()] });\n`,
+    );
+    writeFileSync(
+        join(dir, "index.html"),
+        `<!doctype html>\n<html lang="en">\n<body>\n<div id="root"></div>\n<script type="module" src="/src/main.ts"></script>\n</body>\n</html>\n`,
+    );
+    // strict, with the published declarations checked too (no skipLibCheck)
+    const tsconfig = {
+        compilerOptions: {
+            target: "ES2022",
+            lib: ["ES2022", "DOM", "DOM.Iterable"],
+            module: "ESNext",
+            moduleResolution: "bundler",
+            jsx: "preserve",
+            strict: true,
+            noUncheckedIndexedAccess: true,
+            verbatimModuleSyntax: true,
+            noEmit: true,
+            types: [],
+        },
+        include: ["src/**/*.ts", "src/**/*.vue"],
+    };
+    writeFileSync(
+        join(dir, "tsconfig.json"),
+        `${JSON.stringify(tsconfig, null, 4)}\n`,
+    );
+    mkdirSync(join(dir, "src"));
+    writeFileSync(join(dir, "src/main.ts"), VUE_SMOKE_MAIN);
+    writeFileSync(join(dir, "src/App.vue"), VUE_SMOKE_APP);
+}
+
+/**
+ * The Vue smoke test: the scratch Vite + Vue app installs the Vue tarball, typechecks (vue-tsc),
+ * builds and loads its dev server.
+ */
+async function vueSmoke(
+    app: string,
+    tarballs: { core: string; adapter: string },
+): Promise<void> {
+    writeVueSmokeApp(app, tarballs.core, tarballs.adapter);
+    run("pnpm", ["install", "--no-frozen-lockfile"], app);
+    run("pnpm", ["exec", "vue-tsc", "--noEmit"], app);
+    run("pnpm", ["exec", "vite", "build"], app);
+    // the component imports the package (the entry only mounts it): its compiled module is loaded
+    await loadThroughDevServer(app, "/src/App.vue");
+}
+
+/** The versions packages/angular pins (its Angular tools and TypeScript 6.0), for its smoke app. */
+function angularVersion(name: string): string {
+    const manifest = JSON.parse(
+        readFileSync(join(root, "packages/angular/package.json"), "utf8"),
+    ) as { devDependencies?: Record<string, string> };
+    const version = manifest.devDependencies?.[name];
+    if (version === undefined) {
+        throw new Error(`packages/angular does not pin ${name}`);
+    }
+    return version;
+}
+
+// The Angular smoke app: one standalone component with every directive of every entry, checked by
+// ngc with strict templates, bootstrapped zoneless.
+const ANGULAR_SMOKE_MAIN = `import {
+    Component,
+    provideZonelessChangeDetection,
+    signal,
+} from "@angular/core";
+import { bootstrapApplication } from "@angular/platform-browser";
+import {
+    DndDragOverlay,
+    type DroppableEvent,
+    injectDragMonitor,
+} from "@fragiola/dnd-angular";
+import { DndDraggable, DndDragHandle } from "@fragiola/dnd-angular/draggable";
+import { DndDroppable } from "@fragiola/dnd-angular/droppable";
+import {
+    DndSortable,
+    DndSortableGroup,
+    type SortEndEvent,
+} from "@fragiola/dnd-angular/sortable";
+import { DndSwappable, type SwapEvent } from "@fragiola/dnd-angular/swappable";
+
+@Component({
+    selector: "app-root",
+    imports: [
+        DndDraggable,
+        DndDragHandle,
+        DndDroppable,
+        DndSortable,
+        DndSortableGroup,
+        DndSwappable,
+        DndDragOverlay,
+    ],
+    template: \`
+        <main>
+            @if (!inBox()) {
+                <div dndDraggable="card" type="task">
+                    <button type="button" dndDragHandle>Move</button>
+                    Drag me
+                </div>
+            }
+            <div dndDroppable="box" [accepts]="['task']" (drop)="drop($event)" aria-label="Drop here">
+                {{ inBox() ? "In the box" : "" }}
+            </div>
+            <ul dndSortableGroup="list">
+                <li dndSortable="one" [index]="0" group="list" (sortEnd)="sortEnd($event)">One</li>
+            </ul>
+            <div dndSwappable="two" [index]="0" group="board" (swap)="swap($event)">Two</div>
+            <ng-template dndDragOverlay let-operation>
+                <div>{{ operation.source.id }}</div>
+            </ng-template>
+        </main>
+    \`,
+})
+class App {
+    protected readonly inBox = signal(false);
+
+    constructor() {
+        injectDragMonitor((event) => console.log(event.type));
+    }
+
+    protected drop(event: DroppableEvent<"drop">): void {
+        this.inBox.set(String(event.operation.source.id) === "card");
+    }
+
+    protected sortEnd(event: SortEndEvent): void {
+        console.log(event.from.index, event.to.index);
+    }
+
+    protected swap(event: SwapEvent): void {
+        console.log(event.type);
+    }
+}
+
+bootstrapApplication(App, {
+    providers: [provideZonelessChangeDetection()],
+}).catch((error: unknown) => console.error(error));
+`;
+
+/**
+ * A scratch Vite + Angular app in `dir` (@analogjs/vite-plugin-angular) that depends on the
+ * Angular tarball only (the core tarball comes as its dependency), on the Angular tools and the
+ * TypeScript 6.0 packages/angular pins.
+ */
+function writeAngularSmokeApp(
+    dir: string,
+    core: string,
+    angular: string,
+): void {
+    const version = angularVersion;
+    const manifest = {
+        name: "dnd-smoke",
+        private: true,
+        type: "module",
+        dependencies: {
+            "@angular/common": version("@angular/common"),
+            "@angular/compiler": version("@angular/compiler"),
+            "@angular/core": version("@angular/core"),
+            "@angular/platform-browser": version("@angular/platform-browser"),
+            "@fragiola/dnd-angular": `file:${angular}`,
+            rxjs: version("rxjs"),
+        },
+        devDependencies: {
+            "@analogjs/vite-plugin-angular": version(
+                "@analogjs/vite-plugin-angular",
+            ),
+            "@angular/build": version("@angular/build"),
+            "@angular/compiler-cli": version("@angular/compiler-cli"),
+            typescript: version("typescript"),
+            vite: version("vite"),
+        },
+    };
+    writeFileSync(
+        join(dir, "package.json"),
+        `${JSON.stringify(manifest, null, 4)}\n`,
+    );
+    // the core tarball for the version the Angular tarball pins; the Analog plugin's TypeScript is
+    // the app's (6.0), and @angular/build's native helpers keep their prebuilt binaries
+    writeFileSync(
+        join(dir, "pnpm-workspace.yaml"),
+        [
+            "overrides:",
+            `  "@fragiola/dnd": "file:${core}"`,
+            "packageExtensions:",
+            '  "@analogjs/vite-plugin-angular":',
+            "    peerDependencies:",
+            '      typescript: "*"',
+            "allowBuilds:",
+            "  esbuild: true",
+            '  "@parcel/watcher": false',
+            "  lmdb: false",
+            "  msgpackr-extract: false",
+            "",
+        ].join("\n"),
+    );
+    writeFileSync(
+        join(dir, "vite.config.js"),
+        `import angular from "@analogjs/vite-plugin-angular";\nimport { defineConfig } from "vite";\n\nexport default defineConfig({ plugins: [angular({ tsconfig: "tsconfig.json" })] });\n`,
+    );
+    writeFileSync(
+        join(dir, "index.html"),
+        `<!doctype html>\n<html lang="en">\n<body>\n<app-root></app-root>\n<script type="module" src="/src/main.ts"></script>\n</body>\n</html>\n`,
+    );
+    // strict, strict templates, with the published declarations checked too (no skipLibCheck)
+    const tsconfig = {
+        compilerOptions: {
+            target: "ES2022",
+            lib: ["ES2022", "DOM", "DOM.Iterable"],
+            module: "ESNext",
+            moduleResolution: "bundler",
+            strict: true,
+            noUncheckedIndexedAccess: true,
+            verbatimModuleSyntax: true,
+            useDefineForClassFields: false,
+            types: [],
+        },
+        angularCompilerOptions: {
+            strictTemplates: true,
+            strictInjectionParameters: true,
+            strictInputAccessModifiers: true,
+        },
+        include: ["src"],
+    };
+    writeFileSync(
+        join(dir, "tsconfig.json"),
+        `${JSON.stringify(tsconfig, null, 4)}\n`,
+    );
+    mkdirSync(join(dir, "src"));
+    writeFileSync(join(dir, "src/main.ts"), ANGULAR_SMOKE_MAIN);
+}
+
+/**
+ * The Angular smoke test: the scratch Vite + Angular app installs the Angular tarball, typechecks
+ * (ngc, strict templates), builds and loads its dev server.
+ */
+async function angularSmoke(
+    app: string,
+    tarballs: { core: string; adapter: string },
+): Promise<void> {
+    writeAngularSmokeApp(app, tarballs.core, tarballs.adapter);
+    run("pnpm", ["install", "--no-frozen-lockfile"], app);
+    run("pnpm", ["exec", "ngc", "-p", "tsconfig.json", "--noEmit"], app);
+    run("pnpm", ["exec", "vite", "build"], app);
+    await loadThroughDevServer(app, "/src/main.ts");
+}
+
 /** What `check:package` checks of an adapter, besides what every package gets. */
 export interface AdapterCheck {
     /** its directory, `packages/<dir>` */
     dir: string;
     /** the framework whose examples app (`examples/<framework>`) pins the smoke app's versions */
-    framework: "react";
+    framework: Framework;
     /**
      * Its smoke test, in an empty scratch directory outside the workspace: an app that installs
      * the adapter's tarball only (the core tarball comes as its dependency), typechecks, builds and
@@ -457,6 +813,8 @@ export interface AdapterCheck {
 /** Every adapter, one per package under packages/ but the core (`unlistedPackages` checks it). */
 export const ADAPTERS: readonly AdapterCheck[] = [
     { dir: "react", framework: "react", smoke: reactSmoke },
+    { dir: "vue", framework: "vue", smoke: vueSmoke },
+    { dir: "angular", framework: "angular", smoke: angularSmoke },
 ];
 
 /** The packages/ directories that are neither the core nor an adapter of `adapters`. */
