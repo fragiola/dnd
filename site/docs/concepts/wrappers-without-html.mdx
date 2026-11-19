@@ -93,6 +93,31 @@ every Fragiola primitive does. The development checks are the same: no child, se
 fragment (a `v-for`) or text throw, and a child that never receives the element or its attributes
 is reported after mount. See [the Vue API](/docs/api/vue).
 
+## In Angular
+
+Angular adds behaviour to an element with an attribute directive, so there is nothing to clone:
+the directives sit **on your own element** and add none. The main input is the part's id, the
+options are inputs, the callbacks are outputs, and `exportAs` gives the part's state as a signal,
+the Angular form of a function of the state. Directives stack on one element:
+
+```html title="wrapped.html"
+<li dndDraggable="card-1" dndDroppable="slot-1" #slot="dndDroppable" [class.over]="slot.state().over">
+    Card
+</li>
+<!-- <li data-dnd-part="draggable droppable" data-dnd-id="card-1" …> -->
+
+<section dndDroppable="basket" #basket="dndDroppable" aria-label="Basket">
+    {{ basket.state().over ? "Release to drop" : "Basket" }}
+</section>
+```
+
+The host's own attributes, classes, styles and listeners stay as they are; its template listeners
+are on the element before the core's, so an app's `(pointerdown)` sees a press before dnd claims
+it. Stacked directives share an input of the same name (`disabled`, `scope`, `data`), and a static
+attribute with an input's name sets it (`type` on a `<button dndDraggable>`). A directive on an
+`<ng-container>` throws in development, and a handle outside a source is reported. See
+[the Angular API](/docs/api/angular).
+
 ## Two deliberate exceptions to the Fragiola rules
 
 - **A wrapper that clones its child, not "`render`, never `asChild`".** Fragiola primitives render

@@ -150,6 +150,17 @@
             ]
         },
         {
+            "label": "API (@fragiola/dnd-angular)",
+            "collapsible": true,
+            "defaultOpen": true,
+            "pages": [
+                {
+                    "label": "Directives and injection functions",
+                    "path": "api/angular"
+                }
+            ]
+        },
+        {
             "label": "More",
             "pages": [
                 {

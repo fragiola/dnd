@@ -1,0 +1,162 @@
+---
+title: Angular directives and injection functions
+description: The Angular package, @fragiola/dnd-angular. Its directives, inputs and outputs, the state exportAs gives, the overlay template, and how each React prop maps.
+---
+
+`@fragiola/dnd-angular` has every capability of the React package, with the same rules: no
+provider, parts that add no element of their own, state through `data-dnd-*`, and no change
+detection while the pointer moves. It re-exports the core entry by entry, so an Angular app
+imports everything from it. The behaviour of each part is described on its page
+([`Draggable`](/docs/api/draggable), [`Sortable`](/docs/api/sortable), …); this page says how to
+write it in Angular.
+
+## Entries
+
+| entry                             | directives                                         | injection functions                  |
+| --------------------------------- | -------------------------------------------------- | ------------------------------------ |
+| `@fragiola/dnd-angular`           | `DndDragOverlay`                                   | `injectDragMonitor`, `injectDragSpace` |
+| `@fragiola/dnd-angular/draggable` | `DndDraggable`, `DndDragHandle`                    |                                      |
+| `@fragiola/dnd-angular/droppable` | `DndDroppable`                                     |                                      |
+| `@fragiola/dnd-angular/sortable`  | `DndSortable`, `DndSortableGroup`, `DndDragHandle` |                                      |
+| `@fragiola/dnd-angular/swappable` | `DndSwappable`, `DndDragHandle`                    |                                      |
+
+Each entry also re-exports the core's entry of the same name: the strategies, `arrayMove`,
+`moveBetween`, `swapItems`, `swapBetween`, `autoScroll`, the collision strategies and the types.
+The directives are standalone (no NgModule): add them to a component's `imports`.
+
+## A directive acts on its own element
+
+A directive sits on your element and adds no element of its own:
+
+```ts title="card.ts"
+import { Component } from "@angular/core";
+import { DndDraggable } from "@fragiola/dnd-angular/draggable";
+
+@Component({
+    selector: "app-card",
+    imports: [DndDraggable],
+    template: `<li dndDraggable="a" #card="dndDraggable" class="card" [class.lifted]="card.state().dragging">Report</li>`,
+})
+export class Card {}
+// renders <li dnddraggable="a" class="card" data-dnd-part="draggable" data-dnd-id="a" tabindex="0">Report</li>
+```
+
+| directive                       | selector             | main input (the id)                 | `exportAs`         |
+| ------------------------------- | -------------------- | ----------------------------------- | ------------------ |
+| `DndDraggable`                  | `[dndDraggable]`     | `dndDraggable`: its id              | `dndDraggable`     |
+| `DndDragHandle`                 | `[dndDragHandle]`    | none (found through the DOM)        | `dndDragHandle`    |
+| `DndDroppable`                  | `[dndDroppable]`     | `dndDroppable`: its id              | `dndDroppable`     |
+| `DndSortable`                   | `[dndSortable]`      | `dndSortable`: its id               | `dndSortable`      |
+| `DndSortableGroup`              | `[dndSortableGroup]` | `dndSortableGroup`: the group       | `dndSortableGroup` |
+| `DndSwappable`                  | `[dndSwappable]`     | `dndSwappable`: its id              | `dndSwappable`     |
+| `DndDragOverlay`                | `ng-template[dndDragOverlay]` | none                       |                    |
+
+- **The host** is any element, or a component's host element (a Dockable `[dockableTabSet]`, a
+  Fragiola UI `[kitAvatar]`). A directive on an `<ng-container>` or an `<ng-template>` throws in
+  development: it has no element to act on.
+- **`exportAs` gives the part's state** as a read-only signal: `#card="dndDraggable"`, then
+  `card.state()` is `dragging`, `over`, `active`, `refused`, `sorting` or `disabled`, as the part
+  has them. Prefer the [state attributes](/docs/concepts/state-attributes) in CSS; read the signal
+  for anything else.
+- **The host keeps its own**: its attributes, classes, styles and listeners are untouched. dnd
+  writes only its `data-dnd-*`, ARIA (`aria-disabled`, `aria-describedby`), `tabindex` when the
+  element is not focusable, and the structural style. Template listeners are on the element since
+  its creation, before the core's (added once it is rendered): an app's `(pointerdown)` sees a
+  press before dnd claims it.
+- **Directives stack**: `<li dndDraggable="card" dndDroppable="slot">` is one element with
+  `data-dnd-part="draggable droppable"`, the drag source's id in `data-dnd-id`, and a flag present
+  when any part sets it. Stacked directives share an input of the same name (`disabled`, `scope`,
+  `space`, `data`), as any Angular directives do.
+- **A static attribute with an input's name sets it**: `<button dndDraggable="a" type="button">`
+  gives the draggable the type `"button"`. Put the draggable on another element, or bind `[type]`.
+- **Development checks**, written as Angular's (`ngDevMode`, dropped from an app's production
+  build): a directive on a node that is not an element throws; a handle outside a drag source is
+  reported with `console.error` after the first render.
+
+## Options are inputs, callbacks are outputs
+
+Every option of a part is an input under the same name; callbacks are outputs, local to the part:
+
+```html title="list.html"
+@for (id of tasks(); track id) {
+    <li [dndSortable]="id" [index]="$index" group="tasks" [translate]="false" (sortEnd)="sorted($event)">{{ id }}</li>
+}
+```
+
+| directive          | inputs                                                                                                                                    | outputs                                             |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| `DndDraggable`     | `type`, `data`, `scope`, `space`, `disabled`, `activation`, `keyboard`, `autoScroll`, `collision`, `translate`, `describedBy`              | `dragStart`, `dragMove`, `dragEnd`, `dragCancel`    |
+| `DndDragHandle`    | `describedBy`                                                                                                                             |                                                     |
+| `DndDroppable`     | `data`, `scope`, `space`, `accepts`, `disabled`                                                                                           | `dragEnter`, `dragOver`, `dragLeave`, `drop`        |
+| `DndSortable`      | `index`, `group` (both required), `type`, `data`, `scope`, `space`, `disabled`, `accepts`, `strategy`, `activation`, `autoScroll`, `translate`, `describedBy` | `sortStart`, `sortOver`, `sortEnd` |
+| `DndSortableGroup` | `scope`, `space`, `data`, `disabled`, `accepts`, `strategy`                                                                               |                                                     |
+| `DndSwappable`     | `index`, `group` (both required), `type`, `data`, `scope`, `space`, `disabled`, `accepts`, `activation`, `autoScroll`, `translate`, `describedBy` | `swap`                                    |
+
+An input change updates the registration without re-registering it. `disabled` and `translate`
+take a bare attribute as `true` and `"false"` as `false`; `index` takes a number or a numeric
+attribute. The `(drop)` output shares its name with the DOM's `drop` event, which fires only for
+an HTML5 drag the page accepts (dnd uses none).
+
+## How the React props map
+
+| React                                                   | Angular                                                                               |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `<Draggable id="a"><Card /></Draggable>`                | `<app-card dndDraggable="a">`, the directive on the element itself                     |
+| `className={(state) => …}`, `style={(state) => …}`      | `#card="dndDraggable"`, then `[class.lifted]="card.state().dragging"`                  |
+| `className`, `style` (values)                           | the element's own `class`, `style`                                                     |
+| `render={<li />}`, `render={(props, state) => …}`       | the directive on that element                                                          |
+| `onDragStart`, `onDrop`, `onSortEnd`, `onSwap`, …       | `(dragStart)`, `(drop)`, `(sortEnd)`, `(swap)`, …                                      |
+| `translate={false}`, `disabled`                         | `[translate]="false"`, `disabled`                                                      |
+| `ref` on the wrapper                                    | a template reference or `viewChild` on the element                                    |
+| `<DragHandle><button /></DragHandle>`                   | `<button type="button" dndDragHandle>`                                                 |
+| `<DragOverlay className="ghost">{(op) => …}</DragOverlay>` | `<ng-template dndDragOverlay overlayClass="ghost" let-operation>…</ng-template>`   |
+| `useDraggable(options)` → `{ state, props }`            | the directive: `[dndDraggable]` and its `state` signal                                 |
+| `useDragSpace()`                                        | `injectDragSpace()`: a signal of the space                                             |
+| `useDragMonitor(listener, options)`                     | `injectDragMonitor(listener, options)`                                                 |
+
+## The overlay template
+
+While a drag of its space (and `scope`) runs, `DndDragOverlay` renders its template into a `div`
+in the document's `body` (`data-dnd-part="overlay"`, `overlayClass` its class), fixed over the
+dragged box, with the drag in progress as the template's value. The view is created on the drag's
+start, checked on its target changes and destroyed at its end; the pointer's moves write the box's
+position directly, outside change detection.
+
+```html title="overlay.html"
+<ng-template dndDragOverlay overlayClass="ghost" let-operation>
+    <app-card [id]="operation.source.id" />
+</ng-template>
+```
+
+Inputs: `scope`, `space`, `document`, `overlayClass`. The context is `$implicit` (the operation),
+`operation` and `state`; the template is typed by the directive's context guard.
+
+## Injection functions
+
+Called in an injection context (a component's or a directive's constructor or field). Options are
+a value or a function of signals, for options that change.
+
+| function                               | does                                                                                          |
+| -------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `injectDragSpace(options?)`            | a signal of the space: `options.space` at once, or the document's after the first render, for `space.use`, `can`, `get` |
+| `injectDragMonitor(listener, options?)` | calls `listener` with every drag of the page (or `space`, `scope`) from the first render until the caller is destroyed |
+
+```ts title="rules.ts"
+const space = injectDragSpace();
+effect((onCleanup) => {
+    const current = space();
+    if (current) onCleanup(current.use((ctx, next) => (allowed(ctx) ? next() : { ok: false, error: { code: "vetoed" } })));
+});
+```
+
+Nothing subscribes on the server: a part connects after its first render, in the browser only, so
+server rendering writes the elements with their attributes.
+
+## No change detection while the pointer moves
+
+A part's state changes only on a drag's start and end, on enter and leave, and at a sort's start
+and end; its attributes are written straight from the core, and only the views that read its
+`state()` are checked. The core writes `translate`, the shifts and the overlay's position itself,
+and its listeners run outside Angular's zone when the app has one. After those discrete moments
+(and the outputs they emit), the app is rendered at once after the task, before any paint, so a
+drop's new order never shows a frame without its shifts.

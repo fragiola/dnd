@@ -77,6 +77,44 @@ the part's state: `<Draggable id="card" v-slot="{ state }">`.
 
 </Framework>
 
+<Framework name="angular">
+
+```ts title="hello.ts"
+import { Component, signal } from "@angular/core";
+import { DndDraggable } from "@fragiola/dnd-angular/draggable";
+import { DndDroppable } from "@fragiola/dnd-angular/droppable";
+
+@Component({
+    selector: "app-hello",
+    imports: [DndDraggable, DndDroppable],
+    template: `
+        <app-tray>
+            @if (!inBox()) {
+                <article dndDraggable="card" type="card" aria-label="Card" class="card">Drag me</article>
+            }
+        </app-tray>
+        <app-box>
+            <section dndDroppable="box" [accepts]="['card']" (drop)="inBox.set(true)" aria-label="Box" class="box">
+                @if (inBox()) {
+                    <article dndDraggable="card" type="card" aria-label="Card" class="card">Drag me</article>
+                } @else {
+                    Drop here
+                }
+            </section>
+        </app-box>
+    `,
+})
+export class Hello {
+    readonly inBox = signal(false);
+}
+```
+
+The directives sit on your own elements and add none: the main input is the id, the options are
+inputs and the callbacks are outputs (`(drop)`, `(dragStart)`). `exportAs` gives the part's state:
+`<article dndDraggable="card" #card="dndDraggable" [class.lifted]="card.state().dragging">`.
+
+</Framework>
+
 There is no provider: the tray and the box can be any components, anywhere. The live version:
 
 <Example id="hello-dnd" />
@@ -110,6 +148,17 @@ moving the data is the app's. While the card follows the pointer, the core moves
 >
     <section :aria-label="column.title"><!-- … --></section>
 </Droppable>
+```
+
+</Framework>
+
+<Framework name="angular">
+
+```ts title="board.ts"
+// in the template: <section [dndDroppable]="column.id" (drop)="moved($event, column.id)">…</section>
+moved(event: DroppableEvent<"drop">, to: string) {
+    this.board.update((board) => moveTask(board, String(event.operation.source.id), to));
+}
 ```
 
 </Framework>

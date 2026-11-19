@@ -51,7 +51,11 @@ const appOf = (vue: ExamplesApp) => (framework: Framework) =>
 
 describe("the frameworks of project.json", () => {
     it("are known frameworks; an unknown one throws", () => {
-        expect(frameworksOf(readProject())).toEqual(["react", "vue"]);
+        expect(frameworksOf(readProject())).toEqual([
+            "react",
+            "vue",
+            "angular",
+        ]);
         expect(frameworksOf({ frameworks: ["react", "vue"] })).toEqual([
             "react",
             "vue",
@@ -91,25 +95,24 @@ describe("the frameworks of project.json", () => {
         expect(manifests.get("react")?.examples.length ?? 0).toBeGreaterThan(2);
     });
 
-    it("validate as an export with two frameworks, each embed checked on its own", async () => {
+    it("validate as an export with three frameworks, each embed checked on its own", async () => {
         const out = temp("site-export-");
         const base = "/dnd";
-        const project = { ...readProject(), frameworks: ["react", "vue"] };
-        const manifests = await buildManifests(
-            ["react", "vue"],
-            appOf(fakeVueApp()),
-        );
+        // the docs show every framework of project.json in <Framework> blocks
+        const frameworks: Framework[] = ["react", "vue", "angular"];
+        const project = { ...readProject(), frameworks };
+        const manifests = await buildManifests(frameworks, appOf(fakeVueApp()));
         cpSync(DOCS_DIR, join(out, "docs"), { recursive: true });
         const json = (value: unknown) => `${JSON.stringify(value, null, 4)}\n`;
         writeFileSync(join(out, "project.json"), json(project));
         writeFileSync(join(out, "examples.json"), json(buildExamplesConfig()));
-        for (const embed of embedBuilds(["react", "vue"], base, out)) {
+        for (const embed of embedBuilds(frameworks, base, out)) {
             mkdirSync(embed.dir, { recursive: true });
             // the vue embed forgets noindex: only it is reported
             const robots =
-                embed.framework === "react"
-                    ? '<meta name="robots" content="noindex">'
-                    : "";
+                embed.framework === "vue"
+                    ? ""
+                    : '<meta name="robots" content="noindex">';
             writeFileSync(
                 join(embed.dir, "index.html"),
                 `<!doctype html>\n<html>\n<head>${robots}\n<script type="module" src="${embed.base}assets/index.js"></script>\n</head>\n</html>\n`,
@@ -120,7 +123,9 @@ describe("the frameworks of project.json", () => {
             );
         }
         const problems = validateExport(out, base);
-        expect(problems.filter((p) => p.includes("embed/react/"))).toEqual([]);
+        expect(
+            problems.filter((p) => /embed\/(react|angular)\//.test(p)),
+        ).toEqual([]);
         expect(problems).toEqual([
             expect.stringMatching(
                 /^embed\/vue\/index\.html:3: needs <meta name="robots"/,
