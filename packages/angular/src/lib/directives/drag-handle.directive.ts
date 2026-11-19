@@ -25,6 +25,7 @@ import {
 } from "@fragiola/dnd/adapter";
 import { injectHost } from "../utils/helpers";
 import { flag, writePart } from "../utils/host-attributes";
+import { injectRender } from "../utils/render";
 
 /**
  * Makes its host element the only place its drag source's drag starts, and its tab stop:
@@ -51,9 +52,11 @@ export class DndDragHandle implements OnChanges {
 
     constructor() {
         const zone = inject(NgZone);
+        const render = injectRender();
         const unsubscribe = this.slot.subscribe(() => {
             this.write();
             this.tick.update((value) => value + 1);
+            render();
         });
         this.write();
         afterNextRender({

@@ -92,15 +92,22 @@ export class DndDroppable implements OnChanges {
     /** the droppable's state: `over`, `active`, `refused`, `disabled` */
     readonly state: Signal<DroppableState> = this.part.state;
 
-    // the callbacks the core calls: each emits its output
-    private readonly onDragEnter = (event: DroppableEvent<"drag-enter">) =>
+    // the callbacks the core calls: each emits its output, and a discrete one renders the app
+    // after the task (../../src/lib/utils/render.ts)
+    private readonly onDragEnter = (event: DroppableEvent<"drag-enter">) => {
         this.dragEnter.emit(event);
+        this.part.render();
+    };
     private readonly onDragOver = (event: DroppableEvent<"drag-over">) =>
         this.dragOver.emit(event);
-    private readonly onDragLeave = (event: DroppableEvent<"drag-leave">) =>
+    private readonly onDragLeave = (event: DroppableEvent<"drag-leave">) => {
         this.dragLeave.emit(event);
-    private readonly onDrop = (event: DroppableEvent<"drop">) =>
+        this.part.render();
+    };
+    private readonly onDrop = (event: DroppableEvent<"drop">) => {
         this.drop.emit(event);
+        this.part.render();
+    };
 
     ngOnChanges(): void {
         this.part.changed();

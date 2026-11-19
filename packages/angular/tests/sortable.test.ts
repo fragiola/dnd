@@ -170,6 +170,18 @@ describe("a sort from Angular", () => {
         }
     });
 
+    it("renders the app's new order before the next task, as the core clears the shifts (no jump)", async () => {
+        await render(List);
+        placeColumn();
+        const press = await sortBy("a", 130, false);
+        press.release(50, 159);
+        // a microtask later: no timeout nor frame ran, so no paint came between
+        await Promise.resolve();
+        expect(order()).toEqual(["b", "c", "a", "d"]);
+        for (const id of ["a", "b", "c", "d"])
+            expect(byTestId(id).style.translate, id).toBe("");
+    });
+
     it("refreshes nothing while the preview changes, once at the start and once at the end", async () => {
         await render(List);
         placeColumn();

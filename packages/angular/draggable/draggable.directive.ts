@@ -119,14 +119,22 @@ export class DndDraggable implements OnChanges {
     /** the draggable's state: `dragging`, `disabled` (changes on a drag's start and end only) */
     readonly state: Signal<DraggableState> = this.part.state;
 
-    // the callbacks the core calls: each emits its output
-    private readonly onDragStart = (event: DragStartEvent) =>
+    // the callbacks the core calls: each emits its output, and a discrete one renders the app
+    // after the task (../../src/lib/utils/render.ts)
+    private readonly onDragStart = (event: DragStartEvent) => {
         this.dragStart.emit(event);
+        this.part.render();
+    };
     private readonly onDragMove = (event: DragMoveEvent) =>
         this.dragMove.emit(event);
-    private readonly onDragEnd = (event: DropEvent) => this.dragEnd.emit(event);
-    private readonly onDragCancel = (event: DragCancelEvent) =>
+    private readonly onDragEnd = (event: DropEvent) => {
+        this.dragEnd.emit(event);
+        this.part.render();
+    };
+    private readonly onDragCancel = (event: DragCancelEvent) => {
         this.dragCancel.emit(event);
+        this.part.render();
+    };
 
     ngOnChanges(): void {
         this.part.changed();

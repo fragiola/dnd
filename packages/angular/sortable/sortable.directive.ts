@@ -122,13 +122,20 @@ export class DndSortable implements OnChanges {
     /** the item's state: `dragging`, `sorting`, `disabled` */
     readonly state: Signal<SortableState> = this.part.state;
 
-    // the callbacks the core calls: each emits its output
-    private readonly onSortStart = (event: SortEvent<"sort-start">) =>
+    // the callbacks the core calls: each emits its output, and a discrete one renders the app
+    // after the task (../../src/lib/utils/render.ts)
+    private readonly onSortStart = (event: SortEvent<"sort-start">) => {
         this.sortStart.emit(event);
-    private readonly onSortOver = (event: SortEvent<"sort-over">) =>
+        this.part.render();
+    };
+    private readonly onSortOver = (event: SortEvent<"sort-over">) => {
         this.sortOver.emit(event);
-    private readonly onSortEnd = (event: SortEndEvent) =>
+        this.part.render();
+    };
+    private readonly onSortEnd = (event: SortEndEvent) => {
         this.sortEnd.emit(event);
+        this.part.render();
+    };
 
     ngOnChanges(): void {
         this.part.changed();

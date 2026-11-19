@@ -31,6 +31,7 @@ import {
     type PartName,
     writePart,
 } from "./host-attributes";
+import { injectRender } from "./render";
 
 /** How {@link injectPart} drives one capability's core registration. */
 export interface PartBinding<Options extends object, State extends object> {
@@ -62,6 +63,8 @@ export interface Part<State> {
     readonly element: HTMLElement;
     /** applies the inputs of the moment (call it from `ngOnChanges`) */
     changed(): void;
+    /** renders the app after this task: call it after emitting an output (`./render.ts`) */
+    render(): void;
 }
 
 /**
@@ -79,6 +82,7 @@ export function injectPart<Options extends object, State extends object>(
         binding.rest({ disabled: disabled() }),
     );
     const tick = signal(0);
+    const render = injectRender();
     let connection: Connection | undefined;
     let applied: Options | undefined;
     let destroyed = false;
@@ -95,6 +99,7 @@ export function injectPart<Options extends object, State extends object>(
     const unsubscribe = slot.subscribe(() => {
         write();
         tick.update((value) => value + 1);
+        render();
     });
 
     afterNextRender({
@@ -118,6 +123,7 @@ export function injectPart<Options extends object, State extends object>(
 
     return {
         element,
+        render,
         state: computed(() => {
             tick();
             return slot.getState();

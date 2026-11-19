@@ -111,8 +111,12 @@ export class DndSwappable implements OnChanges {
     /** the item's state: `dragging`, `disabled` */
     readonly state: Signal<SwappableState> = this.part.state;
 
-    // the callback the core calls: it emits the output
-    private readonly onSwap = (event: SwapEvent) => this.swap.emit(event);
+    // the callback the core calls: it emits the output, and renders the app after the task
+    // (../../src/lib/utils/render.ts)
+    private readonly onSwap = (event: SwapEvent) => {
+        this.swap.emit(event);
+        this.part.render();
+    };
 
     ngOnChanges(): void {
         this.part.changed();
