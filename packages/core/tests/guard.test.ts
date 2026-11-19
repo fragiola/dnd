@@ -4,7 +4,7 @@ import { dirname, join, relative, resolve, sep } from "node:path";
 import { describe, expect, it } from "vitest";
 
 // The architecture rules a code review would miss (AGENTS.md, D2, D3 and D5): the core has no
-// dependencies, never imports a framework (React, Vue), never touches the browser globals, exports no `any`, a
+// dependencies, never imports a framework (React, Vue, Angular), never touches the browser globals, exports no `any`, a
 // capability never imports another capability, and every file derived from a reference project
 // says so.
 
@@ -34,10 +34,44 @@ const GLOBAL_DOM =
     /(?<![.\w$])(document|window|requestAnimationFrame|cancelAnimationFrame|getComputedStyle|navigator|localStorage|sessionStorage|ResizeObserver|crypto)\b(?!\s*:)/;
 
 const IMPORT_FRAMEWORK =
-    /(?:from\s+|import\s+|import\s*\(\s*|require\s*\(\s*)["'](?:react|react-dom|vue|@vue\/[^"'/]+)(?:\/[^"']*)?["']/;
+    /(?:from\s+|import\s+|import\s*\(\s*|require\s*\(\s*)["'](?:react|react-dom|vue|@vue\/[^"'/]+|@angular\/[^"'/]+)(?:\/[^"']*)?["']/;
 
 /** The framework adapters: each mirrors the core's entries and builds on its adapter kit. */
-const ADAPTERS = ["react", "vue"] as const;
+const ADAPTERS = ["react", "vue", "angular"] as const;
+
+/** A package's layout: where its capability folders are, and the file each one's entry is. */
+interface Layout {
+    /** the folder holding `<capability>/` (and the shared core, any other folder) */
+    readonly base: string;
+    /** the folders of its sources, under `base` */
+    readonly sources: readonly string[];
+    /** a capability's entry file, in its folder */
+    readonly entry: string;
+}
+
+/**
+ * Each package's layout: `src/<capability>/index.ts` (tsdown), or, for Angular, ng-packagr's
+ * secondary entries, `<capability>/public-api.ts` beside `src/` (the shared core, the main entry).
+ */
+function layoutOf(pkg: string): Layout {
+    if (pkg === "angular")
+        return {
+            base: join(packages, pkg),
+            sources: ["src", ...CAPABILITIES],
+            entry: "public-api.ts",
+        };
+    return {
+        base: join(packages, pkg, "src"),
+        sources: ["."],
+        entry: "index.ts",
+    };
+}
+
+/** A package's source files. */
+function sourcesOf(pkg: string): string[] {
+    const { base, sources } = layoutOf(pkg);
+    return sources.flatMap((folder) => listFiles(join(base, folder)));
+}
 
 /**
  * The capabilities (D3): each is its own entry and its own folder, `src/<capability>/`, in both
@@ -76,7 +110,8 @@ function capabilityOf(file: string, pkgSrc: string): string | undefined {
 /**
  * The capability a specifier reaches, from a file of a package whose sources are `pkgSrc`: a
  * relative path into `src/<capability>/`, or a package subpath (`@fragiola/dnd/<capability>`,
- * `@fragiola/dnd-react/<capability>`, `@fragiola/dnd-vue/<capability>`).
+ * `@fragiola/dnd-react/<capability>`, `@fragiola/dnd-vue/<capability>`,
+ * `@fragiola/dnd-angular/<capability>`).
  */
 function capabilityImported(
     specifier: string,
@@ -88,7 +123,7 @@ function capabilityImported(
         if (!target.startsWith(pkgSrc + sep)) return undefined;
         return capabilityOf(target, pkgSrc);
     }
-    const subpath = /^@fragiola\/dnd(?:-react|-vue)?\/([^/]+)/.exec(
+    const subpath = /^@fragiola\/dnd(?:-react|-vue|-angular)?\/([^/]+)/.exec(
         specifier,
     )?.[1];
     return CAPABILITIES.find((capability) => capability === subpath);
@@ -98,8 +133,9 @@ function capabilityImported(
  * The imports of a package's sources that cross from one capability to another, and those of
  * the shared core (any file outside a capability folder) that reach a capability at all.
  */
-function capabilityCrossings(pkgSrc: string): string[] {
-    return listFiles(pkgSrc).flatMap((file) => {
+function capabilityCrossings(pkg: string): string[] {
+    const pkgSrc = layoutOf(pkg).base;
+    return sourcesOf(pkg).flatMap((file) => {
         const own = capabilityOf(file, pkgSrc);
         return importsOf(readFileSync(file, "utf8")).flatMap((specifier) => {
             const reached = capabilityImported(specifier, file, pkgSrc);
@@ -173,7 +209,7 @@ describe("core package guard", () => {
         expect(pkg.peerDependencies ?? {}).toEqual({});
     });
 
-    it("never imports a framework: react, react-dom, vue", () => {
+    it("never imports a framework: react, react-dom, vue, @angular/*", () => {
         const offenders = listFiles(src).filter((file) =>
             IMPORT_FRAMEWORK.test(readFileSync(file, "utf8")),
         );
@@ -199,10 +235,7 @@ describe("core package guard", () => {
 
     it("never lets a capability import another, nor the shared core import a capability (D3)", () => {
         for (const pkg of ["core", ...ADAPTERS]) {
-            expect(
-                capabilityCrossings(join(packages, pkg, "src")),
-                pkg,
-            ).toEqual([]);
+            expect(capabilityCrossings(pkg), pkg).toEqual([]);
         }
     });
 
@@ -214,14 +247,16 @@ describe("core package guard", () => {
                 readFileSync(join(packages, pkg, "package.json"), "utf8"),
             ) as {
                 exports: Record<string, unknown>;
-                publishConfig: { exports: Record<string, unknown> };
+                publishConfig: {
+                    exports?: Record<string, unknown>;
+                    directory?: string;
+                };
                 sideEffects: unknown;
             };
+            const { base, entry } = layoutOf(pkg);
             const folders = [
                 ...CAPABILITIES.filter((capability) =>
-                    existsSync(
-                        join(packages, pkg, "src", capability, "index.ts"),
-                    ),
+                    existsSync(join(base, capability, entry)),
                 ),
                 ...(extra[pkg] ?? []),
             ];
@@ -233,14 +268,19 @@ describe("core package guard", () => {
             expect(subpaths(manifest.exports), pkg).toEqual(
                 [...folders].sort(),
             );
-            expect(subpaths(manifest.publishConfig.exports), pkg).toEqual(
-                [...folders].sort(),
-            );
-            // the published map never carries the source condition
-            expect(
-                JSON.stringify(manifest.publishConfig.exports),
-                pkg,
-            ).not.toContain("@fragiola/source");
+            if (manifest.publishConfig.exports) {
+                expect(subpaths(manifest.publishConfig.exports), pkg).toEqual(
+                    [...folders].sort(),
+                );
+                // the published map never carries the source condition
+                expect(
+                    JSON.stringify(manifest.publishConfig.exports),
+                    pkg,
+                ).not.toContain("@fragiola/source");
+            }
+            // ng-packagr's output is published from `dist`, with the map its build script writes
+            // there, the source condition left out (packages/angular/scripts/publish-manifest.ts)
+            else expect(manifest.publishConfig.directory, pkg).toBe("dist");
             expect(manifest.sideEffects, pkg).toBe(false);
         }
     });
@@ -305,9 +345,7 @@ describe("core package guard", () => {
         // `packages/react/src/utils/handles.ts` and `useCoreState.ts`)
         const DECISIONS =
             /function (createSlot|shallowEqual|optionsChanged|same|addOwner|addHandle|handleIn)\b|\.closest\(/;
-        const adapterSources = ADAPTERS.flatMap((pkg) =>
-            listFiles(join(packages, pkg, "src")),
-        );
+        const adapterSources = ADAPTERS.flatMap(sourcesOf);
         const copies = adapterSources.flatMap((file) => {
             const source = readFileSync(file, "utf8");
             const match =
@@ -326,9 +364,7 @@ describe("core package guard", () => {
 
     it("ships no CSS: styling is 100% the app's (D7)", () => {
         const css = ["core", ...ADAPTERS].flatMap((pkg) =>
-            listFiles(join(packages, pkg, "src")).filter((file) =>
-                /\.(css|scss|less)$/.test(file),
-            ),
+            sourcesOf(pkg).filter((file) => /\.(css|scss|less)$/.test(file)),
         );
         expect(css).toEqual([]);
     });
@@ -356,6 +392,9 @@ describe("core package guard", () => {
         expect(IMPORT_FRAMEWORK.test('import "react-dom/client";')).toBe(true);
         expect(IMPORT_FRAMEWORK.test('import { h } from "vue";')).toBe(true);
         expect(IMPORT_FRAMEWORK.test('import "@vue/runtime-dom";')).toBe(true);
+        expect(
+            IMPORT_FRAMEWORK.test('import { Directive } from "@angular/core";'),
+        ).toBe(true);
         expect(IMPORT_FRAMEWORK.test('import { x } from "./reactive";')).toBe(
             false,
         );
@@ -375,6 +414,10 @@ describe("core package guard", () => {
         expect(reach("@fragiola/dnd-react/swappable", "core")).toBe(
             "swappable",
         );
+        expect(reach("@fragiola/dnd-angular/sortable", "core")).toBe(
+            "sortable",
+        );
+        expect(reach("@fragiola/dnd-angular", "draggable")).toBeUndefined();
         expect(reach("../core/space", "draggable")).toBeUndefined();
         expect(reach("@fragiola/dnd", "draggable")).toBeUndefined();
         expect(reach("./sensor", "draggable")).toBe("draggable");
