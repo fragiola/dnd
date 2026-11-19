@@ -12,7 +12,7 @@ is Fragiola's, shared with Dockable (`../dockable`), Grid Layout (`../grid-layou
 React wrappers that act **on the element they wrap**, **no mandatory provider**, every capability
 its own entry, and easy composition with Dockable and Grid Layout.
 
-Other adapters follow React (Vue, then Angular: the next Epics), so **every piece of logic that isn't
+Other adapters follow React (Vue, Epic #17; Angular next), so **every piece of logic that isn't
 rendering lives in the core**, and what only an adapter calls is the core's `@fragiola/dnd/adapter`
 entry ([The adapter kit](#the-adapter-kit-fragioladndadapter)).
 
@@ -20,9 +20,11 @@ entry ([The adapter kit](#the-adapter-kit-fragioladndadapter)).
 | ------------------------ | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
 | `packages/core`          | `@fragiola/dnd`       | the shared core (drag space, sensors, collision, events, types) and one entry per capability (`/draggable`, `/droppable`, `/sortable`, `/swappable`) | DOM only, zero runtime deps                                     |
 | `packages/react`         | `@fragiola/dnd-react` | the wrappers and hooks of each capability, re-exporting the core entry by entry: **all a React app installs**                                        | `@fragiola/dnd` (same version), peer `react`, `react-dom` (^19) |
+| `packages/vue`           | `@fragiola/dnd-vue`   | the components and composables of each capability, re-exporting the core entry by entry: **all a Vue app installs**                                  | `@fragiola/dnd` (same version), peer `vue` (^3.5)               |
 | `apps/playground`        | private               | the dev app (every site example live, dev-only scenarios, themes and source), unstyled fixture pages driven by Playwright                            | both packages, `examples/react`                                 |
 | `examples/shared`        | `examples-shared`     | what every framework's examples share: metadata, themes, embed protocol, manifest builder, loader generator, every e2e spec; imports no framework    |                                                                 |
 | `examples/react`, `site` | private               | the site's React examples (the embed app) and pages, exported for fragiola.com                                                                       | `examples-shared`                                               |
+| `examples/vue`           | `examples-vue`        | the site's Vue examples (the Vue embed app): every React example, same id                                                                            | `examples-shared`, `@fragiola/dnd-vue`                          |
 
 ## Non-negotiable rules
 
@@ -300,8 +302,8 @@ branch, which then lists each adapter's smoke app.
 | `pnpm install`                             | install dependencies                                                                                                                                                                          |
 | `pnpm check`                               | Biome lint + format + assist (non-mutating)                                                                                                                                                   |
 | `pnpm check:fix`                           | Biome check with auto-fix                                                                                                                                                                     |
-| `pnpm typecheck`                           | `pnpm -r typecheck` (TypeScript 7, no emit)                                                                                                                                                   |
-| `pnpm test`                                | Vitest: `core` (node), `react` (jsdom), `playground`, `examples-shared`, `examples-react`, `site`                                                                                             |
+| `pnpm typecheck`                           | `pnpm -r typecheck` (TypeScript 7, no emit; `examples-vue` runs `vue-tsc` on its pinned TypeScript 6.0)                                                                                       |
+| `pnpm test`                                | Vitest: `core` (node), `react` (jsdom), `vue` (jsdom), `playground`, `examples-shared`, `examples-react`, `examples-vue`, `site`                                                              |
 | `pnpm build`                               | `pnpm -r build` (tsdown for the packages, Vite for the apps), then the `.d.ts` check                                                                                                          |
 | `pnpm size`                                | the bundle sizes of every entry point (raw, gzip, min + gzip): a report, after `pnpm build`                                                                                                   |
 | `pnpm e2e`                                 | Playwright: the playground (Chromium, Firefox) and every examples app (Chromium, the shared specs against its embed, built and served under `/dnd/embed/<framework>/`, also inside an iframe) |
@@ -314,6 +316,7 @@ branch, which then lists each adapter's smoke app.
 ```
 packages/core/      @fragiola/dnd                src/<capability>/, src/ (the shared core), tests/
 packages/react/     @fragiola/dnd-react          src/<capability>/, src/ (the shared core), tests/
+packages/vue/       @fragiola/dnd-vue            src/<capability>/, src/{components,composables,utils}/, tests/
 apps/playground/    src/                         the shell: catalog, sidebar, toolbar, stage, source
                     src/scenarios/<area>/<id>    dev-only scenarios: drag, drop, keyboard, interop, api
                     fixtures/<name>/             unstyled pages Playwright drives (LTR and RTL)
@@ -324,6 +327,8 @@ examples/shared/    src/meta/<slug>.ts           every example's metadata, for e
                     e2e/                         every Playwright spec, also inside an iframe
 examples/react/     src/examples/<slug>/         the site's React examples (the embed app, Vite)
                     src/components, lib, …       Fragiola UI, vendored (scripts/vendor-fragiola.ts)
+examples/vue/       src/examples/<slug>/         the same examples in Vue (`index.vue`, `styles.ts`)
+                    src/components, lib, …       Fragiola UI over Reka UI, from Dockable's Vue examples
 site/               docs/                        the pages fragiola.com/dnd serves
                     export.ts, contract.ts       `pnpm site:export` and its validation
                     dev.ts, dev-proxy.ts         `pnpm site:dev`: one port, one dev server per framework
@@ -435,12 +440,50 @@ Every wrapper follows the same rules (D6, D7). Tests enforce them; keep it that 
   ARIA**, present or absent. e2e selectors use them, never class names.
 - **No provider, no context** (D4): a wrapper registers itself in its document's drag space.
 
+## The wrapper contract in Vue (`@fragiola/dnd-vue`)
+
+The same contract (D6, D7, D8) with Vue's tools (Epic #17). Tests in `packages/vue/tests` enforce
+it, mirroring `packages/react/tests`.
+
+- **A component renders its single default-slot child cloned** (`cloneVNode`) and no element of
+  its own: its attributes (`data-dnd-*`, ARIA), the attributes passed to the component (`class`,
+  `style`, listeners, …), the structural style and its template ref are merged in. `inheritAttrs`
+  is off: the component passes them on itself. A `v-if` comment beside the child is skipped.
+- **The merge**: the child's `class` first, then the component's; the component's `style` over the
+  child's, the structural keys winning; listeners composed, the wrapper's first, then the child's;
+  the child's own plain attributes win. The wrapper's template ref runs before the child's own
+  (cloning appends it; it is moved first), so the child's ref sees the element registered.
+- **`as`** (a tag or a component) is rendered when there is no child to wrap; the default slot is
+  then its content. It is the family's Vue form of `render`.
+- **The default slot is scoped with the part's state** (`v-slot="{ state }"`), the Vue form of
+  React's `(state) => value`: the app binds `:class` or `:style` on the child from it. The
+  overlay's slot gives `{ operation, state }`.
+- **Options and callbacks are props** (`@drag-start`, `@drop`, `@sort-end`, `@swap` reach
+  `onDragStart`, …); `disabled` and `translate` cast a bare attribute to `true`. A props change is
+  an `update` (the core's `optionsChanged`), applied after the patch (`flush: "post"`).
+- **A ref on a component** receives the component; its `$el` is the element. An outer wrapper
+  reaches the inner one's element the same way, so wrappers stack.
+- **Development checks** (literal `process.env.NODE_ENV !== "production"`): no child, several
+  children, a fragment or text throw; a child that never receives the element (a fragment root) or
+  its attributes, and a handle outside a source, are reported after mount (after the flush,
+  `nextTick`, when every template ref is set).
+- **Composables** (`useDraggable`, `useDroppable`, `useSortable`, `useSortableGroup`,
+  `useSwappable`) take a value, a ref or a getter and return `{ state, props }`, computed refs; a
+  part ends with its effect scope. `useDragSpace` returns a computed ref (the space once mounted),
+  and `useDragMonitor` subscribes from the mount on (a synchronous watcher).
+- **No update while the pointer moves (D8)**: the state slot is read through a computed ref that
+  triggers only when the snapshot changes; a render counter (a global `updated` mixin) checks zero
+  updates while the pointer moves inside one droppable.
+- **Vue's listeners are on the element since its mount**, before the core's (React delegates to
+  the root, after them): an app's `@pointerdown` on a draggable sees the press before dnd claims it.
+
 ## The adapter kit (`@fragiola/dnd/adapter`)
 
 What every adapter takes from the core, so that an adapter only renders and wires (the Fragiola
 adapter rule): if an adapter needs a decision, it is a new member here, with a core test. It is an
 entry of the shared core (it imports no capability), no adapter re-exports it, and an app never
-imports it. `@fragiola/dnd-react` is built on it; a Vue or Angular adapter uses the same members.
+imports it. `@fragiola/dnd-react` and `@fragiola/dnd-vue` are built on it; an Angular adapter uses the
+same members.
 
 | member                                                                                                              | what it decides                                                                                                                                                                                                                                    |
 | ------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -494,8 +537,10 @@ is listed in `docs/walking-skeleton-report.md`.
 
 The docs and examples are served by `fragiola.com/dnd`, built by the `www` repo from this repo's
 **site export** (`../www/CONTRACT.md`, v1.2). This repo only provides: the pages (`site/docs`,
-base-free links, the v1.2 vocabulary), the gallery configuration (`examples.json`) and the examples
-app (`examples/react`, built for `<base>/embed/react/`). `www` owns the shell, the gallery chrome,
+base-free links, the v1.2 vocabulary), the gallery configuration (`examples.json`) and one examples
+app per framework (`examples/react` and `examples/vue`, built for `<base>/embed/<framework>/`). The
+guides stay React-first; the getting-started pages, the wrapper contract and the Dockable guide
+show each framework in `<Framework name="…">` blocks, and `api/vue` is the Vue API. `www` owns the shell, the gallery chrome,
 the code panel and search. A page's `title` is at most 60 characters and never repeats "DnD"; its
 `description` is 50–160 characters, plain words, no `: ` (YAML); a page body has no `#` and never
 skips a heading level; `pnpm site:export` checks all of it. Examples import internal modules

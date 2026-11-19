@@ -2,18 +2,18 @@
     "contract": 1,
     "slug": "dnd",
     "title": "DnD",
-    "description": "A headless drag and drop for React: wrappers that render no HTML, no provider, pointer and keyboard, one entry per capability, styled by you.",
-    "frameworks": ["react"],
+    "description": "A headless drag and drop for React and Vue: wrappers that render no HTML, no provider, pointer and keyboard, one entry per capability, styled by you.",
+    "frameworks": ["react", "vue"],
     "defaultFramework": "react",
     "repository": "https://github.com/fragiola/dnd",
     "keywords": [
         "drag and drop",
         "headless ui",
         "react",
+        "vue",
         "draggable",
         "droppable",
         "accessibility",
-        "keyboard",
-        "pointer events"
+        "keyboard"
     ]
 }

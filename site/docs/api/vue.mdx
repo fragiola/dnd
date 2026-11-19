@@ -1,0 +1,155 @@
+---
+title: Vue components and composables
+description: The Vue package, @fragiola/dnd-vue. Its components and composables, the state their default slot gives, and how each React prop maps to Vue.
+---
+
+`@fragiola/dnd-vue` has every capability of the React package, with the same rules: no provider,
+components that render no HTML of their own, state through `data-dnd-*`, and no update while the
+pointer moves. It re-exports the core entry by entry, so a Vue app imports everything from it. The
+behaviour of each part is described on its page ([`Draggable`](/docs/api/draggable),
+[`Sortable`](/docs/api/sortable), …); this page says how to write it in Vue.
+
+## Entries
+
+| entry                         | components                                | composables                               |
+| ----------------------------- | ----------------------------------------- | ----------------------------------------- |
+| `@fragiola/dnd-vue`           | `DragOverlay`                             | `useDragMonitor`, `useDragSpace`          |
+| `@fragiola/dnd-vue/draggable` | `Draggable`, `DragHandle`                 | `useDraggable`                            |
+| `@fragiola/dnd-vue/droppable` | `Droppable`                               | `useDroppable`                            |
+| `@fragiola/dnd-vue/sortable`  | `Sortable`, `SortableGroup`, `DragHandle` | `useSortable`, `useSortableGroup`         |
+| `@fragiola/dnd-vue/swappable` | `Swappable`, `DragHandle`                 | `useSwappable`                            |
+
+Each entry also re-exports the core's entry of the same name: the strategies, `arrayMove`,
+`moveBetween`, `swapItems`, `swapBetween`, `autoScroll`, the collision strategies and the types.
+
+## A component wraps its default slot's child
+
+A component renders its **single default-slot child**, with its attributes, listeners, ARIA and
+template ref merged in, and no element of its own:
+
+```vue title="card.vue"
+<script setup lang="ts">
+import { Draggable } from "@fragiola/dnd-vue/draggable";
+</script>
+
+<template>
+    <Draggable id="a" v-slot="{ state }">
+        <li class="card" :class="{ lifted: state.dragging }">Report</li>
+    </Draggable>
+</template>
+<!-- renders <li class="card" data-dnd-part="draggable" data-dnd-id="a" tabindex="0">Report</li> -->
+```
+
+- **The child** is a DOM element, or a component whose root element takes its attributes and
+  template ref (every Fragiola primitive does: `Dockable.TabSet`, a Fragiola UI `Avatar.Root`).
+- **The default slot is scoped with the part's state**: `v-slot="{ state }"` gives `dragging`,
+  `over`, `active`, `refused`, `sorting` or `disabled`, as the part has them.
+- **The merge**: the child's own `class` and `style` are kept, the wrapper's `class` added and
+  its `style` merged over them, the structural keys (`translate`, `touch-action`) always winning.
+  Listeners compose, the wrapper's first, then the child's own. The child's own plain attributes
+  win. The child's template ref receives the element, after the component has registered it.
+- **Components stack**: `<Droppable id="slot"><Draggable id="card"><li /></Draggable></Droppable>`
+  renders one `li` with `data-dnd-part="draggable droppable"` and the inner one's id.
+- **`as`** renders an element of that tag (or component) when there is no child to wrap; the
+  default slot is then its content: `<Droppable id="list" as="ul">…</Droppable>`.
+- **Development checks**: no child, several children, a fragment (a `v-for`, or a `<template>` of
+  several nodes) or text throw; a child that never receives the element (a component rendering a
+  fragment) or its attributes (`inheritAttrs: false` without `v-bind="$attrs"`), and a handle
+  outside a drag source, are reported with `console.error` after mount. A `v-if` comment beside
+  the child is skipped.
+
+## Options and callbacks are props
+
+Every option of a part is a prop of its component, under the same name. Callbacks are props too,
+written as listeners, and they are local to the part:
+
+```vue title="list.vue"
+<Sortable
+    v-for="(id, index) in tasks"
+    :id="id"
+    :key="id"
+    :index="index"
+    group="tasks"
+    :translate="false"
+    @sort-end="({ from, to, canceled }) => !canceled && (tasks = arrayMove(tasks, from.index, to.index))"
+>
+    <li>{{ id }}</li>
+</Sortable>
+```
+
+A change to a prop updates the registration without re-registering it, and a callback is always
+the latest. A bare boolean attribute is `true` (`<Draggable id="a" disabled>`).
+
+## How the React props map
+
+| React                                                   | Vue                                                                             |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `<Draggable id="a"><Card /></Draggable>`                | `<Draggable id="a"><Card /></Draggable>`, the default slot's single child       |
+| `className={(state) => …}`, `style={(state) => …}`      | `v-slot="{ state }"` and `:class`/`:style` on the child                         |
+| `className`, `style` (values)                           | `class`, `style` on the component: merged into the child's                      |
+| `render={<li />}`                                       | `as="li"`                                                                       |
+| `render={(props, state) => <li {...props} />}`          | `as`, or the composable: `<li v-bind="props">`                                  |
+| `onDragStart`, `onDrop`, `onSortEnd`, `onSwap`, …       | `@drag-start`, `@drop`, `@sort-end`, `@swap`, …                                 |
+| `translate={false}`, `disabled`                         | `:translate="false"`, `disabled`                                                |
+| `ref` on the wrapper                                    | a template ref on the child (the element); on the component, its `$el`          |
+| `<DragOverlay>{(operation) => …}</DragOverlay>`         | `<DragOverlay v-slot="{ operation }">…</DragOverlay>`                           |
+| `useDraggable(options)` → `{ state, props }`            | `useDraggable(options)` → `{ state, props }`, two computed refs                 |
+| `useDragSpace()`, `useDragMonitor(listener, options)`   | the same names, the space a computed ref                                        |
+
+## DragOverlay
+
+While a drag of its space (and `scope`) runs, `DragOverlay` teleports a `div` (or `as`) into the
+document's `body`, fixed over the dragged box, and renders its default slot with the drag in
+progress. It updates on the drag's start, its target changes and its end; the pointer's moves
+write its position directly.
+
+```vue title="overlay.vue"
+<DragOverlay class="ghost" v-slot="{ operation }">
+    <Card :id="operation.source.id" />
+</DragOverlay>
+```
+
+Props: `scope`, `space`, `document`, `as`; any other attribute reaches its element.
+
+## Composables
+
+The lower layer, for an element you bind yourself. Each takes its options as a value, a ref or a
+getter (pass a getter or a ref for options that change), and returns `{ state, props }`: `state` a
+computed ref of the part's state, `props` a computed ref of what goes on the element (the
+registering template ref, `data-dnd-*`, ARIA), bound with `v-bind`.
+
+```vue title="row.vue"
+<script setup lang="ts">
+import { useSortable } from "@fragiola/dnd-vue/sortable";
+
+const props = defineProps<{ id: string; index: number }>();
+const { state, props: sortable } = useSortable(() => ({
+    id: props.id,
+    index: props.index,
+    group: "rows",
+}));
+</script>
+
+<template>
+    <li v-bind="sortable" :class="{ lifted: state.dragging }">{{ id }}</li>
+</template>
+```
+
+| composable                         | binds                                                             |
+| ---------------------------------- | ----------------------------------------------------------------- |
+| `useDraggable(options)`            | a draggable (the options of `Draggable`)                          |
+| `useDroppable(options)`            | a droppable                                                       |
+| `useSortable(options)`             | a sortable item                                                   |
+| `useSortableGroup(options)`        | a sortable group's container                                      |
+| `useSwappable(options)`            | a swappable item                                                  |
+| `useDragMonitor(listener, opts?)`  | nothing: calls `listener` with every drag of the page (or `space`, `scope`) from the mount on |
+| `useDragSpace(opts?)`              | nothing: the document's space once mounted (or `space`), for `space.use`, `can`, `get` |
+
+A part ends with the component (or the effect scope) its composable runs in.
+
+## No update while the pointer moves
+
+A component updates only when its part's state changes: the source on start and end, droppables
+when a drag they would accept starts and ends, and on enter and leave; sortable items at a sort's
+start and end. The core writes `translate`, the shifts and the overlay's position itself. Server
+rendering renders the child with its attributes; nothing touches the DOM before mount.
