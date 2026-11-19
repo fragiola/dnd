@@ -1,0 +1,122 @@
+{
+    "name": "@fragiola/dnd-vue",
+    "version": "0.0.0",
+    "description": "Headless, composable Vue drag and drop over @fragiola/dnd: wrappers that render no HTML of their own, no provider, one entry per capability, styled entirely by you.",
+    "keywords": [
+        "vue",
+        "drag-and-drop",
+        "dnd",
+        "draggable",
+        "droppable",
+        "sortable",
+        "swappable",
+        "headless",
+        "accessibility"
+    ],
+    "license": "MIT",
+    "type": "module",
+    "author": {
+        "name": "Mauro de Souza",
+        "email": "maurodesouza.me@gmail.com",
+        "url": "https://github.com/maurodesouza"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/fragiola/dnd.git",
+        "directory": "packages/vue"
+    },
+    "homepage": "https://fragiola.com/dnd",
+    "bugs": {
+        "url": "https://github.com/fragiola/dnd/issues"
+    },
+    "sideEffects": false,
+    "exports": {
+        ".": {
+            "@fragiola/source": "./src/index.ts",
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js",
+            "default": "./dist/index.js"
+        },
+        "./draggable": {
+            "@fragiola/source": "./src/draggable/index.ts",
+            "types": "./dist/draggable.d.ts",
+            "import": "./dist/draggable.js",
+            "default": "./dist/draggable.js"
+        },
+        "./droppable": {
+            "@fragiola/source": "./src/droppable/index.ts",
+            "types": "./dist/droppable.d.ts",
+            "import": "./dist/droppable.js",
+            "default": "./dist/droppable.js"
+        },
+        "./sortable": {
+            "@fragiola/source": "./src/sortable/index.ts",
+            "types": "./dist/sortable.d.ts",
+            "import": "./dist/sortable.js",
+            "default": "./dist/sortable.js"
+        },
+        "./swappable": {
+            "@fragiola/source": "./src/swappable/index.ts",
+            "types": "./dist/swappable.d.ts",
+            "import": "./dist/swappable.js",
+            "default": "./dist/swappable.js"
+        },
+        "./package.json": "./package.json"
+    },
+    "files": [
+        "dist",
+        "README.md",
+        "LICENSE"
+    ],
+    "publishConfig": {
+        "exports": {
+            ".": {
+                "types": "./dist/index.d.ts",
+                "import": "./dist/index.js",
+                "default": "./dist/index.js"
+            },
+            "./draggable": {
+                "types": "./dist/draggable.d.ts",
+                "import": "./dist/draggable.js",
+                "default": "./dist/draggable.js"
+            },
+            "./droppable": {
+                "types": "./dist/droppable.d.ts",
+                "import": "./dist/droppable.js",
+                "default": "./dist/droppable.js"
+            },
+            "./sortable": {
+                "types": "./dist/sortable.d.ts",
+                "import": "./dist/sortable.js",
+                "default": "./dist/sortable.js"
+            },
+            "./swappable": {
+                "types": "./dist/swappable.d.ts",
+                "import": "./dist/swappable.js",
+                "default": "./dist/swappable.js"
+            },
+            "./package.json": "./package.json"
+        }
+    },
+    "scripts": {
+        "build": "tsdown",
+        "typecheck": "tsc --noEmit",
+        "test": "vitest run"
+    },
+    "dependencies": {
+        "@fragiola/dnd": "workspace:*"
+    },
+    "peerDependencies": {
+        "vue": "^3.5.0"
+    },
+    "devDependencies": {
+        "@testing-library/jest-dom": "7.0.1",
+        "@vue/test-utils": "2.5.1",
+        "jsdom": "31.0.0",
+        "tsdown": "0.23.7",
+        "typescript": "7.0.2",
+        "vite": "8.3.6",
+        "vitest": "5.1.0",
+        "vue": "3.5.45"
+    }
+}
