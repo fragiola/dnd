@@ -3,17 +3,22 @@
 #
 #   Checks   Biome, TypeScript, the unit tests and the build (with the .d.ts check), then the
 #            bundle size report.
-#   Package  `pnpm check:package`: builds and packs every package with pnpm, lints the tarballs
-#            (dist-only exports, publint, attw), checks the React package pins the core's exact
-#            version, then installs it into a scratch Vite + React app outside the workspace that
+#   Package  `pnpm check:package`: builds and packs every package with pnpm (the Angular one
+#            from its ng-packagr `dist`), lints the tarballs (dist-only exports, publint, attw),
+#            checks each adapter pins the core's exact version, then installs each adapter into
+#            its own scratch app outside the workspace (Vite + React; Vite + Vue, vue-tsc on
+#            TypeScript 6.0; Vite + Analog, ngc with strict templates on TypeScript 6.0) that
 #            typechecks, builds and loads its dev server.
 #   Changesets  on a pull request, `pnpm changeset status` fails when the PR changes what a
 #            package ships (`changedFilePatterns` in .changeset/config.json) without adding a
 #            changeset. Skipped for the Version Packages PR (changeset-release/*), which consumes
 #            them.
 #   E2E      the Playwright suites, in parallel jobs: the playground (Chromium, Firefox and the
-#            `mobile` project) from source, and the examples app (Chromium), whose embed builds
-#            against the packages' dist, so its job builds the packages.
+#            `mobile` project) from source, and one job per framework's examples app (every
+#            `examples/<framework>` with a playwright.config.ts, found by the Examples apps job:
+#            react, vue, angular), each running the shared specs of examples/shared/e2e against
+#            its own embed (Chromium). An examples embed builds against the packages' dist, so
+#            its job builds the packages, and installs the Playwright of its own app.
 #   E2E (WebKit mobile)  the playground's mobile specs in WebKit on an iPhone's viewport: a
 #            report, never a gate (continue-on-error).
 #   Site export  `pnpm site:export --base /dnd`, self-validated against the www contract.
@@ -142,10 +147,32 @@ jobs:
           path: apps/playground/playwright-report/
           retention-days: 14
 
-  e2e-examples:
-    name: E2E (examples)
+  # The frameworks that have an examples app: every examples/<framework> with a playwright.config.ts
+  # (examples/shared, the specs every framework runs, has none). Adding an app adds its job.
+  examples-apps:
+    name: Examples apps
     if: github.event_name != 'push'
     runs-on: ubuntu-latest
+    outputs:
+      frameworks: ${{ steps.list.outputs.frameworks }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: list
+        run: |
+          frameworks=$(ls examples/*/playwright.config.ts | cut -d/ -f2 | jq -Rnc '[inputs]')
+          echo "frameworks=$frameworks" >> "$GITHUB_OUTPUT"
+          echo "examples apps: $frameworks"
+
+  e2e-examples:
+    name: E2E (examples ${{ matrix.framework }})
+    needs: examples-apps
+    if: github.event_name != 'push'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        framework: ${{ fromJson(needs.examples-apps.outputs.frameworks) }}
     steps:
       - uses: actions/checkout@v4
 
@@ -158,23 +185,24 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # The examples suite builds the embed against the packages' dist.
+      # The examples suite builds the embed against the packages' dist (examplesE2eConfig): the
+      # Angular package through ng-packagr.
       - name: Build the packages
         run: pnpm --filter "./packages/*" build
 
       - name: Install Playwright Chromium
-        working-directory: examples/react
+        working-directory: examples/${{ matrix.framework }}
         run: pnpm exec playwright install --with-deps chromium
 
       - name: Run Playwright
-        run: pnpm --filter examples-react run e2e
+        run: pnpm --filter examples-${{ matrix.framework }} run e2e
 
       - name: Upload Playwright report
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report-examples
-          path: examples/react/playwright-report/
+          name: playwright-report-examples-${{ matrix.framework }}
+          path: examples/${{ matrix.framework }}/playwright-report/
           retention-days: 14
 
   e2e-webkit:
