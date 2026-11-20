@@ -15,7 +15,7 @@ import {
     swapBetween,
 } from "@fragiola/dnd-vue/swappable";
 import { Pause, Play } from "@lucide/vue";
-import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, ref, shallowRef, watch } from "vue";
 import { Clickable } from "#/components/atoms/clickable";
 import { Avatar } from "#/components/ui/avatar";
 import {
@@ -164,16 +164,16 @@ function swapped(event: SwapEvent) {
     message.value = `${id} and ${event.target.id} swapped between ${nameOf(event.source.group)} and ${nameOf(event.target.group)}.`;
 }
 
-/** A ticket's template ref (the component; its `$el` is the element): focuses the one a keyboard move just mounted. */
-function focusMoved(id: string) {
-    return (value: unknown) => {
-        const element = (value as { $el?: unknown } | null)?.$el;
-        if (element instanceof HTMLElement && refocus === id) {
-            refocus = undefined;
-            element.focus();
-        }
-    };
-}
+// found after the render rather than through a template ref on the ticket, so the ticket's own
+// refs stay the wrapper's (the React example explains why: docs/examples-gaps.md, E14)
+watch(state, () => {
+    const id = refocus;
+    if (id === undefined) return;
+    refocus = undefined;
+    nextTick(() =>
+        root.value?.querySelector<HTMLElement>(`[data-dnd-id="${id}"]`)?.focus(),
+    );
+});
 
 const totals = computed(() => totalsOf(state.value));
 
@@ -296,7 +296,6 @@ const skillsOf = (agent: (typeof AGENTS)[number]) =>
                                 @sort-end="sortEnd"
                             >
                                 <TicketCard
-                                    :ref="focusMoved(id)"
                                     :ticket="state.tickets[id]"
                                     :state="state"
                                     :returning="returning === id"
@@ -374,8 +373,7 @@ const skillsOf = (agent: (typeof AGENTS)[number]) =>
                                     @sort-end="sortEnd"
                                 >
                                     <TicketCard
-                                        :ref="focusMoved(id)"
-                                        :ticket="state.tickets[id]"
+                                            :ticket="state.tickets[id]"
                                         :state="state"
                                         :working="index === 0"
                                         :returning="returning === id"

@@ -18,6 +18,7 @@ import {
 import { Pause, Play } from "lucide-react";
 import {
     useEffect,
+    useLayoutEffect,
     useMemo,
     useRef,
     useState,
@@ -96,6 +97,17 @@ export default function SupportDispatch() {
     }, [returning]);
     /** the ticket to focus once it is mounted in its new column (a keyboard move) */
     const refocus = useRef<string | undefined>(undefined);
+    // found after the render rather than through a `ref` on the ticket: a child's own ref is merged
+    // with the wrapper's into a new callback on every render, which would reconnect the ticket on
+    // every tick of the feed (docs/examples-gaps.md, E14)
+    useLayoutEffect(() => {
+        const id = refocus.current;
+        if (id === undefined) return;
+        refocus.current = undefined;
+        root.current
+            ?.querySelector<HTMLElement>(`[data-dnd-id="${id}"]`)
+            ?.focus();
+    });
 
     useDragMonitor((event) => {
         if (event.type === "drag-start") {
@@ -182,14 +194,6 @@ export default function SupportDispatch() {
         );
     }
 
-    /** the ref of a ticket's element: focuses the one a keyboard move just mounted */
-    const focusMoved = (id: string) => (element: HTMLLIElement | null) => {
-        if (element && refocus.current === id) {
-            refocus.current = undefined;
-            element.focus();
-        }
-    };
-
     const totals = totalsOf(state);
     const why = (agent: AgentId): Exclude<Verdict, "ok"> | undefined => {
         if (!dragging || mode !== "move") return undefined;
@@ -218,7 +222,6 @@ export default function SupportDispatch() {
                 onSortEnd={sortEnd}
             >
                 <TicketCard
-                    ref={focusMoved(id)}
                     ticket={ticket}
                     state={state}
                     working={working}
