@@ -127,6 +127,17 @@ describe("the site export", () => {
     it("passes the contract checks", () => {
         expect(validateSite(site)).toEqual([]);
     });
+
+    it("orders the landing's Hero actions examples, the AI agent, the docs (v1.7, §3.3)", () => {
+        const hrefs = [
+            ...(site.pages.get("index") ?? "").matchAll(/href: "([^"]+)"/g),
+        ].map((match) => match[1]);
+        expect(hrefs).toEqual([
+            "/examples",
+            "/ai",
+            "/docs/getting-started/quick-start",
+        ]);
+    });
 });
 
 describe("the contract checks", () => {
