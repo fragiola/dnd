@@ -1,11 +1,11 @@
 ---
-title: DnD — headless drag and drop for React
-description: A headless drag and drop for React. Drag, drop, sort and swap with wrappers that render no HTML, no provider, pointer and keyboard; every pixel is yours.
+title: DnD — headless drag and drop, sort and swap
+description: A headless drag and drop with React, Vue and Angular adapters. Drag, drop, sort and swap with wrappers that render no HTML, no provider, pointer and keyboard.
 layout: landing
 ---
 
 <Hero
-    eyebrow="@fragiola/dnd-react · React"
+    eyebrow="@fragiola/dnd"
     title="Drag and drop that wraps what you already render."
     description="Wrap any element in a Draggable or a Droppable and it drags and drops: no provider, no HTML of its own, no CSS. Mouse, touch, pen and the keyboard go through one path, and each capability is its own import."
     actions={[
@@ -15,7 +15,12 @@ layout: landing
     ]}
 />
 
-<Example id="styling-showcase" variant="showcase" label="The same markup, five themes:" />
+<Example
+    id="support-dispatch"
+    variant="showcase"
+    height={600}
+    label="A live support desk, five themes:"
+/>
 
 <Features columns={4}>
 <Feature title="No HTML of its own">

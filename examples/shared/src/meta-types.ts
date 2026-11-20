@@ -19,6 +19,7 @@ export const CATEGORIES = [
     "mobile",
     "interop",
     "styling",
+    "apps",
 ] as const;
 
 export type Category = (typeof CATEGORIES)[number];
@@ -34,6 +35,7 @@ export const CATEGORY_TITLES: Record<Category, string> = {
     mobile: "Mobile",
     interop: "Fragiola interop",
     styling: "Styling",
+    apps: "Apps",
 };
 
 export interface ExampleMeta {
@@ -74,4 +76,5 @@ export const DEFAULT_HEIGHT: Record<Category, number> = {
     mobile: 720,
     interop: 560,
     styling: 460,
+    apps: 600,
 };

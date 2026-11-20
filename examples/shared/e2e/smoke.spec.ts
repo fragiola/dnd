@@ -8,7 +8,7 @@ import { collectErrors, EXAMPLES, openExample, reset, THEMES } from "./helpers";
 // `E2E_ALL_THEMES=1` runs every example in every theme.
 
 // Each covers something a theme can break: cards and zones, a handle, an overlay portalled into
-// the body, RTL, the lift and the zone states, Dockable's parts.
+// the body, RTL, the lift and the zone states, Dockable's parts, a live scene.
 /** Examples run in every theme, chosen so that together they cover what a theme can break. */
 const REPRESENTATIVE: string[] = [
     "hello-dnd",
@@ -20,6 +20,7 @@ const REPRESENTATIVE: string[] = [
     "kanban",
     "swap-grid",
     "sortable-dockable",
+    "support-dispatch",
 ];
 
 // a framework may ship a subset of the examples: a name must be an example of some framework
