@@ -45,6 +45,7 @@ looking for its feature would search, and `order` is its place inside the catego
 | `mobile`             | touch: the delay activation, page scrolling kept                                                                                   |
 | `interop`            | dnd with the family: inside Dockable panels, onto a tabset, sortable panels, Fragiola UI items (Grid Layout: playground scenarios) |
 | `styling`            | how a drag looks when it is not about one feature: the lift, the placeholder, RTL                                                  |
+| `apps`               | whole applications that combine many features, some of them live                                                                   |
 
 ## Adding an example
 
