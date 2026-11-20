@@ -162,7 +162,7 @@ describe("the kit", () => {
 
     it("shares the React kit's demo content and app policy, unchanged", () => {
         const react = examplesApp("react").examplesDir;
-        for (const file of ["tasks.ts", "files.ts"])
+        for (const file of ["tasks.ts", "files.ts", "dispatch.ts"])
             expect(readFileSync(join(KIT, file), "utf8"), file).toBe(
                 readFileSync(join(react, "_kit", file), "utf8"),
             );
