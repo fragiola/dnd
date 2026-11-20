@@ -304,8 +304,9 @@ one manifest per framework, `site:dev` serves them all on one port, and `pnpm e2
 examples app. A spec whose example a framework lacks is skipped (`requireExamples`, called by
 `openExample`). Releasing a new framework's package also needs its entry in `ADAPTERS`
 (`scripts/check-package.ts`) with its smoke app, its `0.0.0` stub and its `npm trust`
-([`docs/releasing.md`](docs/releasing.md), "Later releases, new packages, failures"); CI's examples
-e2e job finds the new examples app by its `playwright.config.ts`.
+([`docs/releasing.md`](docs/releasing.md), "Later releases, new packages, failures"); CI's `Changes`
+job finds the new examples app by its `playwright.config.ts`, and `scripts/e2e-suites.ts` gives its
+package and examples app their own rule.
 
 ## Commands
 
@@ -325,6 +326,21 @@ e2e job finds the new examples app by its `playwright.config.ts`.
 | `pnpm dev`                                 | the playground on <http://localhost:5173>: every example and scenario live, the fixtures (`PLAYGROUND_PORT` moves it)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `pnpm site:export --base /dnd --out <dir>` | the site export for fragiola.com (contract v1.2, `../www/CONTRACT.md`), self-validated                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | `pnpm site:dev --base /dnd --port 5183`    | every framework's examples app with hot reload, one dev server each behind one port (`site/dev-proxy.ts`), under the base `www` proxies in dev                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+
+## CI
+
+`.github/workflows/ci.yml` (its comment header describes every job) runs on pull requests and on
+a manual run: Checks, Package (`pnpm check:package`), Changesets (a PR that changes what a package
+ships needs a changeset; skipped for the Version Packages PR), Site export, and the E2E suites
+(Epic #27, from fragiola/data-grid). A `Changes` job picks the suites a pull request can affect
+(`scripts/e2e-suites.ts`, a `git diff` against the base, tested by `site/tests/e2e-suites.test.ts`):
+none for docs only (`site/docs/**`, `*.md`, `AGENTS.md`); `packages/react` or `examples/react`: the
+playground and examples react; `packages/vue` or `examples/vue`: examples vue; `packages/angular`
+or `examples/angular`: examples angular; any other path, and a manual run: every suite. Only those
+may skip: a new rule names what it skips, never what it runs. The E2E jobs run in
+`mcr.microsoft.com/playwright:v<version>-noble` (`--user 1001`), its tag the version of
+`@playwright/test` (`site/tests/ci-workflow.test.ts`): upgrading Playwright changes both. No
+shards: add `--shard` only for a suite whose test step takes more than about 3 minutes.
 
 ## Repository layout
 
