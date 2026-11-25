@@ -267,14 +267,16 @@ build no longer folds it) and took the shared entry from 3.8 to 3.5 KB; the drag
 move measurably. Loading the keyboard's targets mode lazily (about 0.3 KB) would make a drag's
 first arrow keys depend on a chunk arriving, so it was left in.
 
-## Known limits
+## Good to know
 
-An `onMouseDown` on a draggable does not run (the press is claimed on `pointerdown`; use
-`onPointerDown`), a drag never crosses documents, auto-scroll uses the scroll range measured
-when the drag starts, and the `grid`
-strategy suits items of one size. In Firefox, set `overflow-anchor: none` on a scroll container whose
-items are dragged or shifted. See
-[limitations](https://fragiola.com/dnd/docs/limitations).
+An `onMouseDown` on a draggable does not run: the press is claimed on `pointerdown`, so use
+`onPointerDown` ([sensors](https://fragiola.com/dnd/docs/concepts/sensors-and-activation)). A drag
+never crosses documents ([the drag space](https://fragiola.com/dnd/docs/concepts/no-provider-drag-space)).
+Auto-scroll uses the scroll range measured when the drag starts
+([core](https://fragiola.com/dnd/docs/api/core)). The `grid` strategy suits items of one size
+([sortable](https://fragiola.com/dnd/docs/concepts/sortable)). In Firefox, set
+`overflow-anchor: none` on a scroll container whose items are dragged or shifted
+([animating the shifts](https://fragiola.com/dnd/docs/guides/animating-shifts)).
 
 ## Stability
 

@@ -111,7 +111,8 @@ const scroll = autoScroll({ threshold: 56, speed: 14 });
 While a draggable with `autoScroll` is dragged near an edge of a scroll container that holds the
 pointer, the nearest such container that can still scroll that way scrolls, a frame at a time,
 faster the deeper into the edge zone (the page's scroller last). Each container's scroll range is
-measured when the drag starts, so the dragged element's own `translate` never grows it.
+measured when the drag starts, so the dragged element's own `translate` never grows it; content
+added during the drag (a list that loads more) is scrolled into from the next drag on.
 
 <Example id="auto-scroll" />
 
