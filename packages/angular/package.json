@@ -1,6 +1,6 @@
 {
     "name": "@fragiola/dnd-angular",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "description": "Headless, composable Angular drag and drop over @fragiola/dnd: attribute directives on your own elements, no provider, one entry per capability, styled entirely by you.",
     "keywords": [
         "angular",
