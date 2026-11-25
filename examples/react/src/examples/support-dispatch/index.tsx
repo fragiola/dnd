@@ -97,9 +97,8 @@ export default function SupportDispatch() {
     }, [returning]);
     /** the ticket to focus once it is mounted in its new column (a keyboard move) */
     const refocus = useRef<string | undefined>(undefined);
-    // found after the render rather than through a `ref` on the ticket: a child's own ref is merged
-    // with the wrapper's into a new callback on every render, which would reconnect the ticket on
-    // every tick of the feed (docs/examples-gaps.md, E14)
+    // found after the render, by its `data-dnd-id`: a keyboard move to another column mounts the
+    // ticket as a new element there, so the element to focus exists only once that render is done
     useLayoutEffect(() => {
         const id = refocus.current;
         if (id === undefined) return;

@@ -164,8 +164,8 @@ function swapped(event: SwapEvent) {
     message.value = `${id} and ${event.target.id} swapped between ${nameOf(event.source.group)} and ${nameOf(event.target.group)}.`;
 }
 
-// found after the render rather than through a template ref on the ticket, so the ticket's own
-// refs stay the wrapper's (the React example explains why: docs/examples-gaps.md, E14)
+// found after the render, by its `data-dnd-id`: a keyboard move to another column mounts the
+// ticket as a new element there, so the element to focus exists only once the DOM is patched
 watch(state, () => {
     const id = refocus;
     if (id === undefined) return;
