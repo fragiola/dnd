@@ -86,28 +86,28 @@ carries no dnd-kit notice yet.
   still fires) and the focus a press gives. The claim stays, and the pointer sensor gives that
   focus itself, to the press's closest focusable element inside the activator. Text selection is
   prevented while a press lasts, on purpose. Native controls and `data-dnd-no-drag` subtrees are
-  never claimed. This is documented on the sensors page and in the limitations.
+  never claimed. This is documented on the sensors page and the `Draggable` page.
 
 ## What the examples could not express
 
 Recorded in [`examples-gaps.md`](examples-gaps.md). Fixed in the Epic's review pass, each with a
 regression test:
 
-- **`DragOverlay`'s state functions ran while idle** with no operation, against their type (E1):
+- **`DragOverlay`'s state functions ran while idle** with no operation, against their type:
   the overlay now renders its content only while a drag runs.
-- **The first `drag-over` repeated the start place**, so an announcer had to skip it (E2): the
+- **The first `drag-over` repeated the start place**, so an announcer had to skip it: the
   start target is resolved when the drag starts and carried by `drag-start`; `drag-over` reports
   only a later change.
-- **An arrow pressed before a keyboard drag's first frame** counted from no target (E3): fixed by
+- **An arrow pressed before a keyboard drag's first frame** counted from no target: fixed by
   the same start resolution.
 
 Open:
 
 - **Firefox scroll anchoring** scrolls a container back when `translate` is cleared after a
-  cancel; `overflow-anchor: none` fixes it (E4). This explains the "Firefox scrollTop resets
+  cancel; `overflow-anchor: none` fixes it. This explains the "Firefox scrollTop resets
   after a drop" observation: it happens on a cancel (or a release outside any droppable) with the
   container scrolled to its end, never in Chromium.
-- **Grid Layout is not on npm**, so its integration is a playground scenario, not an example (E8).
+- **Grid Layout is not on npm**, so its integration is a playground scenario, not an example.
   A change in Grid Layout's API can break that scenario unnoticed until its e2e runs with
   `../grid-layout` present.
 
@@ -125,7 +125,7 @@ Open:
 
 ## Fixed in the Epic's review pass
 
-Each with a regression test, besides E1–E3 above:
+Each with a regression test, besides the three above:
 
 - A wrapper read its consumers' refs (its `ref`, the child's own) only when the element attached,
   so a ref that changed later never received the element; they now follow each render, as on a
@@ -151,14 +151,14 @@ Each with a regression test, besides E1–E3 above:
 - **The keyboard's targets mode** is dnd-kit's sortable keyboard idea and already orders targets
   in reading order (RTL aware); sortable can reuse `readingOrder` for item-to-item moves.
 - **Placeholders and the overlay.** Sortable lists in clipped containers will lean on
-  `DragOverlay` (E1 is fixed), and an overlay that keeps the grab offset (`grabOffset`) is
-  ready.
+  `DragOverlay` (its idle state functions are fixed), and an overlay that keeps the grab offset
+  (`grabOffset`) is ready.
 - **Commits per reorder.** Bet 4 should hold for a reorder: the items' new places written
   imperatively during the drag, one React commit when the order changes, none per frame.
 - **Size.** Sortable will import the draggable and droppable logic through the shared core; the
   draggable entry is already over its target, so sortable's budget should be measured against
   "all three" (8.4 KB), and shared pieces moved into the core only when two capabilities use them.
-- **Scroll anchoring (E4)**: a sortable list is a scroll container whose children move; setting
+- **Scroll anchoring**: a sortable list is a scroll container whose children move; setting
   `overflow-anchor: none` on the containers during a drag likely belongs in the core then.
 
 ## Sortable and swappable (Epic #6)
@@ -229,7 +229,8 @@ inside the iframe; two playground scenarios (`interop/grid-layout-kanban`,
 `interop/dockable-popout-sortable`). Dockable popouts run under Playwright (Chromium and Firefox):
 the popout scenario sorts in the main window, in the popout window's own drag space, and again
 once docked back. What the examples could not express is in [`examples-gaps.md`](examples-gaps.md)
-(E9–E12); none needed a package change.
+(the refocus after a keyboard move between groups, a refusing group, the empty group's
+placeholder, Grid Layout's stacking contexts); none needed a package change.
 
 ### The hand-off items, answered
 
@@ -242,7 +243,7 @@ once docked back. What the examples could not express is in [`examples-gaps.md`]
   (`sortable-dockable`, the Grid Layout kanban).
 - **Commits per reorder**: see the table above.
 - **Size**: measured against the three Epic #1 entries, as planned (above).
-- **Scroll anchoring (E4)**: left to the app, as documented CSS (S4); every example sets it.
+- **Scroll anchoring**: left to the app, as documented CSS (S4); every example sets it.
 
 ### Validation
 
