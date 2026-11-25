@@ -1,8 +1,10 @@
+import { createDragSpace, type DragSpace } from "@fragiola/dnd";
 import { render, screen } from "@testing-library/react";
 import * as React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Draggable, DragHandle } from "../src/draggable";
 import { Droppable } from "../src/droppable";
+import { Sortable } from "../src/sortable";
 import { pointer } from "./helpers";
 
 // The wrapper contract (D6, D7): a wrapper renders exactly its child's element, with its props,
@@ -37,6 +39,29 @@ function Tab(
 /** A component that takes a ref and drops it. */
 function Swallows(_props: { ref?: React.Ref<HTMLElement> }) {
     return <div />;
+}
+
+/** A sortable and a draggable whose children take a new inline callback ref on every render. */
+function List(props: {
+    tick: number;
+    space: DragSpace;
+    seen: (HTMLElement | null)[];
+}) {
+    const { tick, space, seen } = props;
+    return (
+        <ul>
+            <Sortable id="a" index={0} group="list" space={space}>
+                <li data-testid="a" ref={(node) => void seen.push(node)}>
+                    {tick}
+                </li>
+            </Sortable>
+            <Draggable id="b" space={space}>
+                <div data-testid="b" ref={(node) => void seen.push(node)}>
+                    {tick}
+                </div>
+            </Draggable>
+        </ul>
+    );
 }
 
 afterEach(() => {
@@ -160,6 +185,26 @@ describe("the merge", () => {
         expect(b.current).toBe(element);
         expect(own.current).toBe(element);
         expect(element.dataset.dndPart).toBe("draggable");
+    });
+
+    it("keeps its part connected while the child's own ref is a new callback on every render", () => {
+        const space = createDragSpace({ document });
+        const register = vi.spyOn(space.adapter, "register");
+        const seen: (HTMLElement | null)[] = [];
+        const { rerender } = render(
+            <List tick={0} space={space} seen={seen} />,
+        );
+        const calls = register.mock.calls.length;
+        expect(calls).toBeGreaterThan(0);
+        for (const tick of [1, 2, 3])
+            rerender(<List tick={tick} space={space} seen={seen} />);
+        expect(register.mock.calls.length).toBe(calls);
+        const a = screen.getByTestId("a");
+        const b = screen.getByTestId("b");
+        expect(seen.at(-1)).toBe(b);
+        expect(seen).toContain(a);
+        expect(a.dataset.dndPart).toBe("sortable");
+        expect(b.dataset.dndPart).toBe("draggable");
     });
 
     it("composes the handlers of a `render` element after its own props", () => {

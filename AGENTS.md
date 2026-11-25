@@ -259,7 +259,7 @@ These are the decisions of Epic #6, on top of D1–D14, which still hold.
    the cleared shifts in one frame) never animates. There are no built-in drop animations.
    **Scroll anchoring:** a sortable container whose children shift should set `overflow-anchor:
    none` in the app's CSS (Firefox anchors on a shifted child and scrolls it back when the shift is
-   cleared, E4); the packages ship no CSS, so it is documented, not set.
+   cleared); the packages ship no CSS, so it is documented, not set.
 5. **Size targets (S5)** (min + gzip, React entry, on top of the shared core): `sortable` ≤ 2.5 KB,
    `swappable` ≤ 1.5 KB. `pnpm size` lists both entries, alone and over the draggable and droppable
    ones (their drag machinery is shared). A miss is reported with its reason; it is not a stop.

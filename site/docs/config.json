@@ -164,10 +164,6 @@
             "label": "More",
             "pages": [
                 {
-                    "label": "Limitations and roadmap",
-                    "path": "limitations"
-                },
-                {
                     "label": "Found a problem?",
                     "href": "https://github.com/fragiola/dnd/issues",
                     "external": true

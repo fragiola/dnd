@@ -16,7 +16,8 @@
             "**/*.css",
             "**/*.mdx",
             "**/*.md",
-            "!**/CHANGELOG.md"
+            "!**/CHANGELOG.md",
+            "!.changeset/*.md"
         ]
     },
     "formatter": {

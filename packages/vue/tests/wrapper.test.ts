@@ -1,3 +1,4 @@
+import { createDragSpace } from "@fragiola/dnd";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
     type Component,
@@ -10,6 +11,7 @@ import {
 } from "vue";
 import { Draggable, DragHandle } from "../src/draggable";
 import { Droppable } from "../src/droppable";
+import { Sortable } from "../src/sortable";
 import { byTestId, pointer, render, settle } from "./helpers";
 
 // The wrapper contract (D6, D7) in Vue: a wrapper renders exactly its default-slot child's
@@ -213,6 +215,56 @@ describe("the merge", () => {
             ),
         );
         expect(seen[0]).toBe("0");
+    });
+
+    it("keeps its part connected while the child's own template ref is a new function on every render", async () => {
+        const space = createDragSpace({ document });
+        const register = vi.spyOn(space.adapter, "register");
+        const tick = ref(0);
+        const seen: unknown[] = [];
+        render(
+            page(() =>
+                h("ul", [
+                    h(
+                        Sortable,
+                        { id: "a", index: 0, group: "list", space },
+                        () =>
+                            h(
+                                "li",
+                                {
+                                    "data-testid": "a",
+                                    ref: (element: unknown) =>
+                                        void seen.push(element),
+                                },
+                                String(tick.value),
+                            ),
+                    ),
+                    h(Draggable, { id: "b", space }, () =>
+                        h(
+                            "div",
+                            {
+                                "data-testid": "b",
+                                ref: (element: unknown) =>
+                                    void seen.push(element),
+                            },
+                            String(tick.value),
+                        ),
+                    ),
+                ]),
+            ),
+        );
+        const calls = register.mock.calls.length;
+        expect(calls).toBeGreaterThan(0);
+        for (const next of [1, 2, 3]) {
+            tick.value = next;
+            await settle();
+        }
+        expect(byTestId("a").textContent).toBe("3");
+        expect(register.mock.calls.length).toBe(calls);
+        expect(seen).toContain(byTestId("a"));
+        expect(seen.at(-1)).toBe(byTestId("b"));
+        expect(byTestId("a").dataset.dndPart).toBe("sortable");
+        expect(byTestId("b").dataset.dndPart).toBe("draggable");
     });
 
     it("patches a child's CSS string style key by key, never wiping the core's translate", async () => {

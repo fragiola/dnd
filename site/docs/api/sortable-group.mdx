@@ -25,7 +25,7 @@ import { Sortable, SortableGroup } from "@fragiola/dnd-react/sortable";
 
 | prop | type | default | |
 | --- | --- | --- | --- |
-| `group` | `string` | required | the group whose container it is |
+| `group` | `string` | required | the group whose container it is; also its drop target id, so keep it distinct from the scope's droppable ids |
 | `scope` | `string` | the default scope | its group's scope |
 | `space` | `DragSpace` | its document's | an explicit space from `createDragSpace` |
 | `data` | `unknown` | | what the drop middleware sees as the target's data (`ctx.target.data`) |
