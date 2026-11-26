@@ -1,5 +1,13 @@
 # @fragiola/dnd-react
 
+## 0.1.1
+
+### Patch Changes
+
+- [#39](https://github.com/fragiola/dnd/pull/39) [`b2a1baf`](https://github.com/fragiola/dnd/commit/b2a1baf19938f2259f8e7368d15ebed863a3c1df) Thanks [@maurodesouza](https://github.com/maurodesouza)! - The README's notes on the `pointerdown` claim, documents, auto-scroll's range, the `grid` strategy and Firefox scroll anchoring link the docs page of the part each concerns.
+- Updated dependencies []:
+  - @fragiola/dnd@0.1.1
+
 ## 0.1.0
 
 ### Minor Changes

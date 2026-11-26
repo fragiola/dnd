@@ -1,6 +1,6 @@
 {
     "name": "@fragiola/dnd-vue",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "description": "Headless, composable Vue drag and drop over @fragiola/dnd: wrappers that render no HTML of their own, no provider, one entry per capability, styled entirely by you.",
     "keywords": [
         "vue",

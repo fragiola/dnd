@@ -1,6 +1,6 @@
 {
     "name": "@fragiola/dnd",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "description": "Headless drag and drop core: a drag space per document, pointer and keyboard sensors, collision strategies and the draggable, droppable, sortable and swappable capabilities, framework-free and dependency-free.",
     "keywords": [
         "drag-and-drop",
